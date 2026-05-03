@@ -191,6 +191,7 @@ function checkBossPlayerCollision() {
 
 function drawBoss() {
   if (boss) {
+    // ピンクのオーラ (画像の下に維持)
     const auraR = boss.r + 8 + Math.sin(frame*0.1)*4;
     const grad2 = ctx.createRadialGradient(boss.x, boss.y, boss.r, boss.x, boss.y, auraR);
     grad2.addColorStop(0, 'rgba(255,100,200,0.6)');
@@ -199,13 +200,16 @@ function drawBoss() {
     ctx.beginPath();
     ctx.arc(boss.x, boss.y, auraR, 0, Math.PI*2);
     ctx.fill();
-    ctx.fillStyle = '#ff6699';
-    ctx.beginPath();
-    ctx.arc(boss.x, boss.y, boss.r, 0, Math.PI*2);
-    ctx.fill();
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 2;
-    ctx.stroke();
+    // 本体: ステージ別画像、未ロード時はピンクの円+白輪郭にフォールバック
+    if (!drawImageCentered(`boss_stage${selectedStage}`, boss.x, boss.y, 88)) {
+      ctx.fillStyle = '#ff6699';
+      ctx.beginPath();
+      ctx.arc(boss.x, boss.y, boss.r, 0, Math.PI*2);
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
   }
 }
 

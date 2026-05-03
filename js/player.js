@@ -85,17 +85,19 @@ function drawPlayer() {
     ctx.fill();
   }
   if (player.invuln === 0 || frame % 4 < 2) {
-    // 機体本体
-    ctx.fillStyle = '#88ccff';
-    ctx.beginPath();
-    ctx.moveTo(player.x, player.y - 14);
-    ctx.lineTo(player.x - 12, player.y + 10);
-    ctx.lineTo(player.x + 12, player.y + 10);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 1;
-    ctx.stroke();
+    // 機体本体: 画像 (後ろ向き)。読み込み未完了/失敗時は三角ポリゴンにフォールバック
+    if (!drawImageCentered('player', player.x, player.y, 40)) {
+      ctx.fillStyle = '#88ccff';
+      ctx.beginPath();
+      ctx.moveTo(player.x, player.y - 14);
+      ctx.lineTo(player.x - 12, player.y + 10);
+      ctx.lineTo(player.x + 12, player.y + 10);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
 
     // 当たり判定の表示 (低速時は中央の白い点を強調)
     if (slowMode) {
