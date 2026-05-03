@@ -195,71 +195,84 @@ function checkEnemyPlayerCollision() {
   });
 }
 
+// 画像未ロード時の図形フォールバック (元コードそのまま)
+function drawEnemyFallback(e) {
+  if (e.type === 'fast') {
+    // 黄色い小さな菱形 (高速感)
+    ctx.save();
+    ctx.translate(e.x, e.y);
+    ctx.rotate(Math.PI/4);
+    ctx.fillStyle = e.color;
+    ctx.fillRect(-e.r, -e.r, e.r*2, e.r*2);
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-e.r, -e.r, e.r*2, e.r*2);
+    ctx.restore();
+  } else if (e.type === 'tank') {
+    // 大型: 装甲っぽい六角形
+    ctx.save();
+    ctx.translate(e.x, e.y);
+    ctx.fillStyle = e.color;
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const a = i * Math.PI / 3;
+      const x = Math.cos(a) * e.r;
+      const y = Math.sin(a) * e.r;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // 内側
+    ctx.fillStyle = '#3a3a55';
+    ctx.beginPath();
+    ctx.arc(0, 0, e.r * 0.5, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  } else if (e.type === 'swayer') {
+    // 紫の星型
+    ctx.save();
+    ctx.translate(e.x, e.y);
+    ctx.rotate(frame * 0.02);
+    ctx.fillStyle = e.color;
+    ctx.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const a = i * Math.PI / 5;
+      const r = i % 2 === 0 ? e.r : e.r * 0.5;
+      const x = Math.cos(a) * r;
+      const y = Math.sin(a) * r;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.restore();
+  } else {
+    // normal / spread: 円
+    ctx.fillStyle = e.color;
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, e.r, 0, Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+}
+
+// タイプ別の画像表示サイズ (ゲーム内 px、縦横比保持)
+function enemyImageSize(type) {
+  if (type === 'fast') return 28;
+  if (type === 'tank') return 64;
+  return 36; // normal / spread / swayer
+}
+
 function drawEnemies() {
   enemies.forEach(e => {
-    if (e.type === 'fast') {
-      // 黄色い小さな菱形 (高速感)
-      ctx.save();
-      ctx.translate(e.x, e.y);
-      ctx.rotate(Math.PI/4);
-      ctx.fillStyle = e.color;
-      ctx.fillRect(-e.r, -e.r, e.r*2, e.r*2);
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(-e.r, -e.r, e.r*2, e.r*2);
-      ctx.restore();
-    } else if (e.type === 'tank') {
-      // 大型: 装甲っぽい六角形
-      ctx.save();
-      ctx.translate(e.x, e.y);
-      ctx.fillStyle = e.color;
-      ctx.beginPath();
-      for (let i = 0; i < 6; i++) {
-        const a = i * Math.PI / 3;
-        const x = Math.cos(a) * e.r;
-        const y = Math.sin(a) * e.r;
-        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-      }
-      ctx.closePath();
-      ctx.fill();
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      // 内側
-      ctx.fillStyle = '#3a3a55';
-      ctx.beginPath();
-      ctx.arc(0, 0, e.r * 0.5, 0, Math.PI*2);
-      ctx.fill();
-      ctx.restore();
-    } else if (e.type === 'swayer') {
-      // 紫の星型
-      ctx.save();
-      ctx.translate(e.x, e.y);
-      ctx.rotate(frame * 0.02);
-      ctx.fillStyle = e.color;
-      ctx.beginPath();
-      for (let i = 0; i < 10; i++) {
-        const a = i * Math.PI / 5;
-        const r = i % 2 === 0 ? e.r : e.r * 0.5;
-        const x = Math.cos(a) * r;
-        const y = Math.sin(a) * r;
-        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-      }
-      ctx.closePath();
-      ctx.fill();
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-      ctx.restore();
-    } else {
-      // normal / spread: 円
-      ctx.fillStyle = e.color;
-      ctx.beginPath();
-      ctx.arc(e.x, e.y, e.r, 0, Math.PI*2);
-      ctx.fill();
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-    }
+    if (drawImageCentered(`enemy_${e.type}`, e.x, e.y, enemyImageSize(e.type))) return;
+    drawEnemyFallback(e);
   });
 }
