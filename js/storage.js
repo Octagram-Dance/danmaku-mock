@@ -1,0 +1,26 @@
+// ハイスコア保存 (localStorage)
+
+const HISCORE_KEY = 'gensou_danmaku_hiscore_v1';
+
+function loadHiScores() {
+  try {
+    const raw = localStorage.getItem(HISCORE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return {}; // { "Easy": 0, "Normal": 0, "Hard": 0 }
+}
+
+function saveHiScore(diff, sc) {
+  const scores = loadHiScores();
+  if (!scores[diff] || sc > scores[diff]) {
+    scores[diff] = sc;
+    try { localStorage.setItem(HISCORE_KEY, JSON.stringify(scores)); } catch (e) {}
+    return true;
+  }
+  return false;
+}
+
+function getHiScore(diff) {
+  const scores = loadHiScores();
+  return scores[diff] || 0;
+}
