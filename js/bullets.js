@@ -50,7 +50,7 @@ function checkPlayerBulletHits() {
         e.hp -= 1; // ホーミングも通常弾も同じ1ダメージ (ホーミングは攻撃範囲で勝負)
         b._consumed = true;
         // ボス完全撃破: 最後のスペルカードのHPが尽きたとき
-        if (e === boss && boss.hp <= 0 && boss.pattern >= SPELL_CARDS.length - 1) {
+        if (e === boss && boss.hp <= 0 && boss.pattern >= boss.spellCards.length - 1) {
           explode(boss.x, boss.y, '#ffccff', 60);
           score += 50000;
           spawnScoreText(boss.x, boss.y, '+50000', '#ffcc44');
@@ -76,6 +76,24 @@ function checkPlayerBulletHits() {
 
 function moveAndFilterEnemyBullets() {
   enemyBullets = enemyBullets.filter(b => {
+    // 凍結中: 移動しない (画面端判定のみ通過)
+    if (b.freezeTimer > 0) {
+      b.freezeTimer--;
+      return true;
+    }
+    // 弾自体が回転: vx,vy を omega ラジアンずつ回す (葉舞・渦巻き用)
+    // omegaDecay 指定時は毎F omega *= omegaDecay で減衰 (永続軌道になって弾がボス周りに閉じ込められるのを防ぐ)
+    if (b.omega) {
+      const cs = Math.cos(b.omega);
+      const sn = Math.sin(b.omega);
+      const nvx = b.vx * cs - b.vy * sn;
+      const nvy = b.vx * sn + b.vy * cs;
+      b.vx = nvx; b.vy = nvy;
+      if (b.omegaDecay) {
+        b.omega *= b.omegaDecay;
+        if (Math.abs(b.omega) < 0.0001) b.omega = 0;
+      }
+    }
     b.x += b.vx; b.y += b.vy;
     return b.x > PX-10 && b.x < PX+PW+10 && b.y > PY-10 && b.y < PY+PH+10;
   });
