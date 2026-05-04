@@ -58,6 +58,19 @@ function drawTitle() {
   ctx.fillText('↑↓で選択 / Z または Enter で決定', W/2, H - 18);
 }
 
+// 戻るボタン (左上、stageSelect / difficulty 共通) — タップ判定は handleClick 側
+function drawBackButton() {
+  ctx.save();
+  ctx.textAlign = 'left';
+  ctx.font = 'bold 20px sans-serif';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+  ctx.fillText('← 戻る', 40, 50);
+  ctx.font = '11px sans-serif';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+  ctx.fillText('Esc / X', 40, 68);
+  ctx.restore();
+}
+
 function drawStageSelect() {
   ctx.textAlign = 'center';
   ctx.fillStyle = '#ffccdd';
@@ -75,6 +88,7 @@ function drawStageSelect() {
       ctx.fillText(label, W/2, y);
     }
   }
+  drawBackButton();
 }
 
 function drawDifficulty() {
@@ -96,6 +110,7 @@ function drawDifficulty() {
       ctx.globalAlpha = 1;
     }
   }
+  drawBackButton();
 }
 
 function drawSlowModeLabel() {

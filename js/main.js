@@ -30,6 +30,9 @@ let pauseMenuIndex = 0;
 let selectedStage = 1;
 let selectedDifficulty = 'Normal';
 let bossOnlyMode = false;
+// 'difficulty' state に到達した経路。true なら stageSelect 経由 (戻り先 = stageSelect)、
+// false なら title から「はじめから遊ぶ」直行 (戻り先 = title)。
+let cameViaStageSelect = false;
 
 let player, playerBullets, homingBullets, enemies, enemyBullets, items, particles;
 let floatTexts; // スコア取得時のフローティングテキスト
@@ -167,16 +170,37 @@ function nextStage() {
 
 function selectMenu() {
   if (state === 'title') {
-    if (menuIndex === 0) { state = 'difficulty'; menuIndex = 1; selectedStage = 1; bossOnlyMode = false; }
-    else if (menuIndex === 1) { state = 'stageSelect'; menuIndex = 0; bossOnlyMode = false; }
+    if (menuIndex === 0) {
+      state = 'difficulty'; menuIndex = 1;
+      selectedStage = 1; bossOnlyMode = false;
+      cameViaStageSelect = false; // title 直行
+    } else if (menuIndex === 1) { state = 'stageSelect'; menuIndex = 0; bossOnlyMode = false; }
     else if (menuIndex === 2) { state = 'stageSelect'; menuIndex = 0; bossOnlyMode = true; }
   } else if (state === 'stageSelect') {
     selectedStage = menuIndex + 1;
     state = 'difficulty';
     menuIndex = 1;
+    cameViaStageSelect = true; // stageSelect 経由
   } else if (state === 'difficulty') {
     selectedDifficulty = DIFFS[menuIndex];
     startGame(selectedStage, bossOnlyMode);
+  }
+}
+
+// Esc / X / 左上タップでメニューを 1 つ前に戻す
+function goBackFromMenu() {
+  if (state === 'stageSelect') {
+    state = 'title';
+    // どの title 項目から来たかでカーソル位置を復元 (1=ステージ選択 / 2=ボスから遊ぶ)
+    menuIndex = bossOnlyMode ? 2 : 1;
+  } else if (state === 'difficulty') {
+    if (cameViaStageSelect) {
+      state = 'stageSelect';
+      menuIndex = Math.max(0, Math.min(2, selectedStage - 1)); // ステージ番号 → menuIndex
+    } else {
+      state = 'title';
+      menuIndex = 0; // "はじめから遊ぶ" にカーソル復帰
+    }
   }
 }
 
@@ -189,6 +213,11 @@ function handleClick(p) {
       }
     }
   } else if (state === 'stageSelect' || state === 'difficulty') {
+    // 左上の「← 戻る」ボタンタップ判定
+    if (p.x >= 20 && p.x <= 160 && p.y >= 20 && p.y <= 80) {
+      goBackFromMenu();
+      return;
+    }
     for (let i = 0; i < 3; i++) {
       const y = 280 + i * 70;
       if (p.y > y - 30 && p.y < y + 30 && p.x > 200 && p.x < 600) {
@@ -272,6 +301,10 @@ function update() {
     if (justPressed['ArrowDown']) menuIndex++;
     menuIndex = (menuIndex + 3) % 3;
     if (justPressed['z'] || justPressed['Z'] || justPressed['Enter'] || justPressed[' ']) selectMenu();
+    // Esc / X で 1つ前に戻る (title はルートなので除外)
+    if ((justPressed['Escape'] || justPressed['x'] || justPressed['X']) && state !== 'title') {
+      goBackFromMenu();
+    }
   }
   if (state === 'paused') {
     if (justPressed['ArrowUp']) pauseMenuIndex--;
