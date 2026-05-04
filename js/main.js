@@ -33,6 +33,8 @@ let bossOnlyMode = false;
 
 let player, playerBullets, homingBullets, enemies, enemyBullets, items, particles;
 let floatTexts; // スコア取得時のフローティングテキスト
+let grazeRings; // グレイズ時の緑の輪エフェクト
+let grazeCount; // ステージを跨いで累積するグレイズ回数 (startGame でのみリセット)
 let bombs, bombActive, bombTimer; // ボム機能用
 let bombFlash; // ボム発動瞬間の全画面フラッシュ強度 (0〜30)
 let screenFlash; // 被弾時など画面演出用
@@ -60,6 +62,8 @@ function startGame(stage, fromBossOnly) {
   items = [];
   particles = [];
   floatTexts = [];
+  grazeRings = [];
+  grazeCount = 0;
   score = 0;
   life = 5;
   power = 0;
@@ -105,6 +109,7 @@ function nextStage() {
   items = [];
   particles = [];
   floatTexts = [];
+  grazeRings = []; // grazeCount は引き継ぎ
   bombActive = false;
   bombTimer = 0;
   bombFlash = 0;
@@ -163,6 +168,7 @@ function handleClick(p) {
     } else {
       state = 'allClear';
       saveHiScore(selectedDifficulty, score);
+      saveGrazeRecord(selectedDifficulty, grazeCount);
     }
   }
   // 'transition' 中はクリック/タップを無視
@@ -192,6 +198,7 @@ function update() {
       updateScreenFlash();
       updateParticles();
       updateFloatTexts();
+      updateGrazeRings();
       if (bombFlash > 0) bombFlash--;
       for (const k in justPressed) justPressed[k] = false;
       return;
@@ -217,6 +224,7 @@ function update() {
     updateCollectPhase();
     updateParticles();
     updateFloatTexts();
+    updateGrazeRings();
   }
 
   if (state === 'title' || state === 'stageSelect' || state === 'difficulty') {
@@ -253,6 +261,7 @@ function update() {
         // 3クリア = 全クリア
         state = 'allClear';
         saveHiScore(selectedDifficulty, score);
+        saveGrazeRecord(selectedDifficulty, grazeCount);
       }
     }
   }
@@ -289,6 +298,7 @@ function drawGame() {
   drawEnemies();
   drawBoss();
   drawEnemyBullets();
+  drawGrazeRings();
   drawParticles();
   drawPlayer();
   drawFloatTexts();

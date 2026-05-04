@@ -44,6 +44,7 @@ function hit() {
   if (life <= 0) {
     state = 'gameOver';
     saveHiScore(selectedDifficulty, score);
+    saveGrazeRecord(selectedDifficulty, grazeCount);
   }
   else {
     // 失うパワー分のPアイテムを画面上方向に撒く (回収しやすく)

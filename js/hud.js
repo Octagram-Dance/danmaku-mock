@@ -180,7 +180,16 @@ function drawHUD() {
   ctx.fillStyle = '#fff';
   ctx.font = 'bold 22px monospace';
   ctx.fillText(score.toString().padStart(8, '0'), x + 70, y + 2);
-  y += 30;
+  y += 26;
+
+  // Graze (累計グレイズ数、緑、6桁ゼロパディング)
+  ctx.fillStyle = '#aaffff';
+  ctx.font = '14px sans-serif';
+  ctx.fillText('Graze', x, y);
+  ctx.fillStyle = '#88ff88';
+  ctx.font = 'bold 18px monospace';
+  ctx.fillText(grazeCount.toString().padStart(6, '0'), x + 70, y + 2);
+  y += 26;
 
   ctx.fillStyle = '#aaffff';
   ctx.font = '14px sans-serif';
