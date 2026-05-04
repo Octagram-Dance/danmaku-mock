@@ -40,6 +40,13 @@ let bombFlash; // ボム発動瞬間の全画面フラッシュ強度 (0〜30)
 let screenFlash; // 被弾時など画面演出用
 let hitStopFrames; // ヒットストップ残フレーム数 (>0 中はゲームロジック停止)
 let transitionTimer; // ステージ遷移演出の残フレーム (>0 中は state='transition')
+let bossIntroTimer; // ボス出現カットインの残フレーム (>0 中は state='bossIntro')
+let summaryTimer; // クリア集計画面の経過フレーム (state='clear' 突入で 0 リセット)
+// ステージ集計用 (startGame で 0、nextStage で更新)
+let stageStartScore;
+let stageStartGraze;
+let bombsUsed;
+let powerItemsCollected;
 let collectPhase, collectPhaseTimer; // ボス撃破後のアイテム回収フェーズ
 let score, life, power, lifeItemCount, frame;
 let stageEnemiesKilled, stageEnemiesSpawned, stageEnemiesPassed, stageEnemyTotal, boss, bossActive, stageCleared;
@@ -75,6 +82,12 @@ function startGame(stage, fromBossOnly) {
   screenFlash = 0;       // 画面フラッシュ強度
   hitStopFrames = 0;
   transitionTimer = 0;
+  bossIntroTimer = 0;
+  summaryTimer = 0;
+  stageStartScore = 0;
+  stageStartGraze = 0;
+  bombsUsed = 0;
+  powerItemsCollected = 0;
   collectPhase = false;
   collectPhaseTimer = 0;
   frame = 0;
@@ -89,9 +102,10 @@ function startGame(stage, fromBossOnly) {
   if (bossOnlyMode) {
     stageEnemiesSpawned = stageEnemyTotal;
     stageEnemiesKilled = stageEnemyTotal;
-    spawnBoss();
+    startBossIntro();  // bossIntro 経由でボスを呼び出す (state='bossIntro' になる)
+  } else {
+    state = 'play';
   }
-  state = 'play';
 }
 
 // 次ステージ開始 (ステータス引き継ぎ)
@@ -115,6 +129,13 @@ function nextStage() {
   bombFlash = 0;
   screenFlash = 0;
   hitStopFrames = 0;
+  bossIntroTimer = 0;
+  summaryTimer = 0;
+  // ステージ集計の起点を現在値に更新
+  stageStartScore = score;
+  stageStartGraze = grazeCount;
+  bombsUsed = 0;
+  powerItemsCollected = 0;
   // ステージ進行カウンタリセット
   stageEnemiesKilled = 0;
   stageEnemiesSpawned = 0;
@@ -271,6 +292,42 @@ function update() {
     if (transitionTimer <= 0) {
       state = 'play';
     }
+  }
+  if (state === 'bossIntro') {
+    // Z/Enter/space/タップでスキップ可
+    if (justPressed['z'] || justPressed['Z'] || justPressed['Enter'] || justPressed[' ']) {
+      bossIntroTimer = 0;
+    }
+    bossIntroTimer--;
+    // 自機の移動のみ受け付ける (発射・無敵減衰なし、衝突判定なし)
+    const slowMode = isSlowMode();
+    const speed = slowMode ? player.slowSpeed : player.speed;
+    if (!touchActive) {
+      if (keys['ArrowLeft']) player.x -= speed;
+      if (keys['ArrowRight']) player.x += speed;
+      if (keys['ArrowUp']) player.y -= speed;
+      if (keys['ArrowDown']) player.y += speed;
+    }
+    player.x = clamp(player.x, PX+10, PX+PW-10);
+    player.y = clamp(player.y, PY+10, PY+PH-10);
+    // 弾は徐々にフェードアウトしつつ慣性で動く (衝突判定はしない)
+    fadeOutEnemyBullets();
+    moveAndFilterEnemyBullets();
+    updatePlayerBullets();
+    updateHomingBullets();
+    // 視覚演出は継続
+    updateScreenFlash();
+    updateParticles();
+    updateFloatTexts();
+    updateGrazeRings();
+    if (bombFlash > 0) bombFlash--;
+    if (bossIntroTimer <= 0) {
+      spawnBoss();
+      state = 'play';
+    }
+  }
+  if (state === 'clear') {
+    summaryTimer++;
   }
   for (const k in justPressed) justPressed[k] = false;
 }

@@ -11,6 +11,7 @@ function explode(x, y, color, n=12) {
 function useBomb() {
   if (bombs <= 0 || bombActive) return;
   bombs--;
+  bombsUsed++; // 集計用
   bombActive = true;
   bombTimer = 180; // 3秒間 (ボム演出+無敵)
   bombFlash = 30; // 発動瞬間の全画面フラッシュ

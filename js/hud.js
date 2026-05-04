@@ -333,23 +333,7 @@ function drawStateOverlays() {
     ctx.font = '16px sans-serif';
     ctx.fillText('Z または Enter でタイトルへ', PX + PW/2, PY + PH/2 + 70);
   } else if (state === 'clear') {
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
-    ctx.fillRect(PX, PY, PW, PH);
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#ffcc44';
-    ctx.font = 'bold 56px "Hiragino Mincho ProN", serif';
-    ctx.fillText('STAGE CLEAR!', PX + PW/2, PY + PH/2 - 30);
-    ctx.fillStyle = '#fff';
-    ctx.font = '20px sans-serif';
-    ctx.fillText(`SCORE: ${score}`, PX + PW/2, PY + PH/2 + 10);
-    ctx.fillStyle = 'rgba(255,255,255,0.6)';
-    ctx.font = '16px sans-serif';
-    if (selectedStage < 3) {
-      ctx.fillText(`次は Stage ${selectedStage + 1} へ`, PX + PW/2, PY + PH/2 + 40);
-      ctx.fillText('Z または Enter で進む', PX + PW/2, PY + PH/2 + 64);
-    } else {
-      ctx.fillText('Z または Enter でタイトルへ', PX + PW/2, PY + PH/2 + 50);
-    }
+    drawClearSummary();
   } else if (state === 'allClear') {
     ctx.fillStyle = 'rgba(0,0,0,0.7)';
     ctx.fillRect(PX, PY, PW, PH);
@@ -371,17 +355,21 @@ function drawStateOverlays() {
     ctx.shadowBlur = 0;
     ctx.fillStyle = '#fff';
     ctx.font = '20px sans-serif';
-    ctx.fillText(`FINAL SCORE: ${score}`, PX + PW/2, PY + PH/2 + 30);
+    ctx.fillText(`FINAL SCORE: ${score.toLocaleString()}`, PX + PW/2, PY + PH/2 + 30);
+    // 追加: 累計グレイズ
+    ctx.fillStyle = '#88ff88';
+    ctx.font = 'bold 16px monospace';
+    ctx.fillText(`Total Graze: ${grazeCount.toLocaleString()}`, PX + PW/2, PY + PH/2 + 56);
     // NEW RECORD表示
     const hiAll = getHiScore(selectedDifficulty);
     if (score >= hiAll && score > 0) {
       ctx.fillStyle = '#ffcc44';
       ctx.font = 'bold 22px "Hiragino Mincho ProN", serif';
-      ctx.fillText('★ NEW RECORD! ★', PX + PW/2, PY + PH/2 + 60);
+      ctx.fillText('★ NEW RECORD! ★', PX + PW/2, PY + PH/2 + 86);
     }
     ctx.fillStyle = 'rgba(255,255,255,0.6)';
     ctx.font = '16px sans-serif';
-    ctx.fillText('Z または Enter でタイトルへ', PX + PW/2, PY + PH/2 + 90);
+    ctx.fillText('Z または Enter でタイトルへ', PX + PW/2, PY + PH/2 + 116);
   } else if (state === 'paused') {
     ctx.fillStyle = 'rgba(0,0,0,0.7)';
     ctx.fillRect(PX, PY, PW, PH);
@@ -443,6 +431,124 @@ function drawStateOverlays() {
       ctx.font = 'bold 30px "Hiragino Mincho ProN", "Yu Mincho", serif';
       ctx.fillText(subtitle, PX + PW/2, slideY + 50);
       ctx.shadowBlur = 0;
+    }
+  } else if (state === 'bossIntro') {
+    // ボス出現カットイン本体は boss.js の drawBossIntro が描画
+    drawBossIntro();
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// ステージクリア集計画面
+// summaryTimer: 'clear' 突入で 0 リセット、毎フレーム +1
+//   0-180  (3s)    : 既存の STAGE CLEAR! 表示
+// 180-210 (0.5s)   : 黒オーバーレイへフェード
+// 210-570 (6s)     : 6項目を 60F 間隔でフェードイン+ロールアップ
+// 570-630 (1s)     : Total Stage Score (金) ロールアップ
+// 630+             : Z 押下プロンプト点滅
+// ─────────────────────────────────────────────────────────
+function drawClearSummary() {
+  const t = summaryTimer || 0;
+
+  // Phase A: 0-180F = 既存の STAGE CLEAR! 表示 (シンプル版)
+  if (t < 180) {
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(PX, PY, PW, PH);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffcc44';
+    ctx.font = 'bold 56px "Hiragino Mincho ProN", serif';
+    ctx.shadowColor = '#ff6699';
+    ctx.shadowBlur = 12;
+    ctx.fillText('STAGE CLEAR!', PX + PW/2, PY + PH/2 - 30);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#fff';
+    ctx.font = '20px sans-serif';
+    ctx.fillText(`SCORE: ${score.toLocaleString()}`, PX + PW/2, PY + PH/2 + 10);
+    return;
+  }
+
+  // Phase B+: 集計画面
+  const phaseT = t - 180;
+
+  // 背景フェード (0-30F)
+  const bgFade = Math.min(1, phaseT / 30);
+  ctx.fillStyle = `rgba(0, 0, 0, ${0.85 * bgFade})`;
+  ctx.fillRect(PX, PY, PW, PH);
+
+  // タイトル
+  ctx.textAlign = 'center';
+  ctx.fillStyle = `rgba(255, 204, 68, ${bgFade})`;
+  ctx.font = 'bold 36px "Hiragino Mincho ProN", serif';
+  ctx.shadowBlur = 12;
+  ctx.shadowColor = '#ff6699';
+  ctx.fillText(`STAGE ${selectedStage} CLEAR!`, PX + PW/2, PY + 70);
+  ctx.shadowBlur = 0;
+
+  // 6項目: ラベルと値
+  const items = [
+    { label: 'Stage Score',    value: score - stageStartScore },
+    { label: 'Enemy Defeated', value: stageEnemiesKilled, max: stageEnemyTotal },
+    { label: 'Boss Bonus',     value: 50000 },
+    { label: 'Graze',          value: (grazeCount - stageStartGraze) * 50 },
+    { label: 'Bombs Used',     value: bombsUsed },
+    { label: 'Power Items',    value: powerItemsCollected },
+  ];
+
+  // 各項目: itemStart (= 30 + i*60) で出現開始、30F でロールアップ完了
+  items.forEach((item, i) => {
+    const itemStart = 30 + i * 60;
+    if (phaseT < itemStart) return;
+    const rollT = Math.min(1, (phaseT - itemStart) / 30);
+    const rowAlpha = Math.min(1, (phaseT - itemStart) / 15);
+    const y = PY + 130 + i * 38;
+    const labelX = PX + 70;
+    const valueX = PX + PW - 70;
+
+    ctx.globalAlpha = rowAlpha;
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#aaffff';
+    ctx.font = 'bold 16px "Hiragino Mincho ProN", serif';
+    ctx.fillText(item.label, labelX, y);
+
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#ffcc44';
+    ctx.font = 'bold 20px monospace';
+    let displayValue;
+    if (item.max !== undefined) {
+      const cur = Math.floor(item.value * rollT);
+      displayValue = `${cur} / ${item.max}`;
+    } else {
+      displayValue = Math.floor(item.value * rollT).toLocaleString();
+    }
+    ctx.fillText(displayValue, valueX, y);
+    ctx.globalAlpha = 1;
+  });
+
+  // Total Stage Score (全項目完了後の 30F)
+  const totalStart = 30 + items.length * 60; // 30 + 360 = 390
+  if (phaseT >= totalStart) {
+    const totalRollT = Math.min(1, (phaseT - totalStart) / 60);
+    const totalY = PY + 130 + items.length * 38 + 40;
+    const totalValue = Math.floor((score - stageStartScore) * totalRollT);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffcc44';
+    ctx.font = 'bold 24px "Hiragino Mincho ProN", serif';
+    ctx.shadowBlur = 16;
+    ctx.shadowColor = '#ffcc44';
+    ctx.fillText(`Total Stage Score: ${totalValue.toLocaleString()}`, PX + PW/2, totalY);
+    ctx.shadowBlur = 0;
+
+    // Z 押下プロンプト (合計表示完了後、点滅)
+    if (totalRollT >= 1) {
+      const blinkOn = Math.floor((phaseT - totalStart - 60) / 30) % 2 === 0;
+      if (blinkOn) {
+        ctx.fillStyle = 'rgba(255,255,255,0.75)';
+        ctx.font = '14px sans-serif';
+        const promptText = (selectedStage < 3 && !bossOnlyMode)
+          ? 'Z または Enter で次のステージへ'
+          : 'Z または Enter で進む';
+        ctx.fillText(promptText, PX + PW/2, totalY + 44);
+      }
     }
   }
 }

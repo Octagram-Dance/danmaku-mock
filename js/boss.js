@@ -9,6 +9,15 @@ const SPELL_CARDS = [
   { name: '結界「弾幕鳳凰陣」',  color: '#ffcc44', hp: 0.24 }
 ];
 
+// ボス出現カットインを開始: state='bossIntro' に遷移し、画面の弾をフェードアウトに切替。
+// 180F (3秒) 経過 or スキップで spawnBoss() が呼ばれて通常のボス戦が開始される。
+function startBossIntro() {
+  state = 'bossIntro';
+  bossIntroTimer = 180;
+  // 既存の敵弾はフェードアウト (スペル切替と同じ仕組みを再利用)
+  enemyBullets.forEach(b => { b.fading = true; });
+}
+
 function spawnBoss() {
   bossActive = true;
   const dm = DIFF_HP[selectedDifficulty];
@@ -378,4 +387,112 @@ function drawSpellAnnounce() {
     ctx.shadowBlur = 0;
     ctx.restore();
   }
+}
+
+// ─────────────────────────────────────────────────────────
+// ボス出現カットイン (state='bossIntro')
+// 180F 構成:
+//   0- 30: 全画面が黒オーバーレイへフェードイン (alpha 0→0.75)
+//  30- 90: ボス画像が画面右からスライドイン (中央やや右に着地)
+//  30-150: 上部の赤帯 + 「!! WARNING !!」点滅
+//  60-150: ボス画像の左に縦書き風で「幻想郷の主」(明朝、shadowBlur)
+// 150-180: 全体フェードアウト (alpha 0.75→0)、ボス画像も同時にフェード
+// 60-165: 画面下に小さく「(Z でスキップ)」
+// ─────────────────────────────────────────────────────────
+function drawBossIntro() {
+  if (state !== 'bossIntro') return;
+  const TOTAL = 180;
+  const t = TOTAL - bossIntroTimer; // 0 → 180
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(PX, PY, PW, PH);
+  ctx.clip();
+
+  // 1. 黒オーバーレイ
+  let bgAlpha;
+  if (t < 30) bgAlpha = (t / 30) * 0.78;
+  else if (t < 150) bgAlpha = 0.78;
+  else bgAlpha = 0.78 * (TOTAL - t) / 30;
+  ctx.fillStyle = `rgba(0, 0, 0, ${bgAlpha})`;
+  ctx.fillRect(PX, PY, PW, PH);
+
+  // 2. ボス画像 (右からスライドイン → 保持 → フェードアウト)
+  if (t >= 30) {
+    let slideT, alpha;
+    if (t < 90) {
+      const raw = (t - 30) / 60;
+      slideT = 1 - Math.pow(1 - raw, 3); // ease-out cubic
+      alpha = slideT;
+    } else if (t < 150) {
+      slideT = 1;
+      alpha = 1;
+    } else {
+      slideT = 1;
+      alpha = (TOTAL - t) / 30;
+    }
+    const startX = PX + PW + 220;
+    const endX = PX + PW * 0.62;
+    const bossX = startX + (endX - startX) * slideT;
+    const bossY = PY + PH * 0.5;
+    ctx.globalAlpha = alpha;
+    if (!drawImageCentered(`boss_stage${selectedStage}`, bossX, bossY, 320)) {
+      // 画像未ロード時のフォールバック (ピンクの円)
+      ctx.fillStyle = '#ff6699';
+      ctx.beginPath();
+      ctx.arc(bossX, bossY, 80, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // 3. 赤い WARNING 帯 (点滅)
+  if (t >= 30 && t < 150) {
+    const bannerY = PY + 80;
+    const blink = Math.floor(t / 6) % 2 === 0;
+    ctx.fillStyle = `rgba(220, 30, 50, ${0.55 + (blink ? 0.18 : 0)})`;
+    ctx.fillRect(PX, bannerY - 28, PW, 56);
+    ctx.strokeStyle = 'rgba(255, 100, 100, 0.85)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(PX, bannerY - 28); ctx.lineTo(PX + PW, bannerY - 28);
+    ctx.moveTo(PX, bannerY + 28); ctx.lineTo(PX + PW, bannerY + 28);
+    ctx.stroke();
+    ctx.fillStyle = blink ? '#ffffff' : '#ffe0e0';
+    ctx.font = 'bold 30px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.shadowBlur = 12;
+    ctx.shadowColor = '#ff0000';
+    ctx.fillText('!! WARNING !!', PX + PW/2, bannerY + 8);
+    ctx.shadowBlur = 0;
+  }
+
+  // 4. ボス名 (左側、フェード+スライドイン)
+  if (t >= 60 && t < 150) {
+    const fadeT = Math.min(1, (t - 60) / 20);
+    const slideOff = -36 * (1 - fadeT);
+    const nameX = PX + 28 + slideOff;
+    const nameY = PY + PH * 0.5 - 6;
+    ctx.textAlign = 'left';
+    ctx.font = 'bold 38px "Hiragino Mincho ProN", "Yu Mincho", serif';
+    ctx.shadowBlur = 18;
+    ctx.shadowColor = '#ff66cc';
+    ctx.fillStyle = `rgba(255, 220, 240, ${fadeT})`;
+    ctx.fillText('幻想郷の主', nameX, nameY);
+    ctx.font = 'bold 14px sans-serif';
+    ctx.shadowBlur = 8;
+    ctx.fillStyle = `rgba(255, 200, 220, ${fadeT * 0.85})`;
+    ctx.fillText('— Master of Gensokyo —', nameX, nameY + 28);
+    ctx.shadowBlur = 0;
+  }
+
+  // 5. スキップヒント (下部)
+  if (t >= 60 && t < 165) {
+    ctx.textAlign = 'center';
+    ctx.font = '11px sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.fillText('(Z でスキップ)', PX + PW/2, PY + PH - 14);
+  }
+
+  ctx.restore();
 }

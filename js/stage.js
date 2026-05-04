@@ -1,9 +1,12 @@
 // ステージ進行・背景描画
 
 function checkBossSpawnTrigger() {
-  // ステージ進行: 倒した数 + 逃げた数 が総数に達したらボス
+  // ステージ進行: 倒した数 + 逃げた数 が総数に達したらボス出現カットインへ
+  // state==='play' の間だけトリガー (bossIntro 中の再トリガー防止)
   const stageProgress = stageEnemiesKilled + stageEnemiesPassed;
-  if (!bossActive && !stageCleared && stageProgress >= stageEnemyTotal) spawnBoss();
+  if (state === 'play' && !bossActive && !stageCleared && stageProgress >= stageEnemyTotal) {
+    startBossIntro();
+  }
 }
 
 // ─────────────────────────────────────────────────────────

@@ -49,6 +49,11 @@ canvas.addEventListener('touchstart', e => {
       return;
     }
   }
+  // ボス出現カットイン中: タップでスキップ
+  if (state === 'bossIntro') {
+    bossIntroTimer = 0;
+    return;
+  }
   // ポーズ画面のメニュータップ
   if (state === 'paused') {
     const cx = PX + PW/2;
