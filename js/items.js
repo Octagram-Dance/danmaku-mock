@@ -16,6 +16,7 @@ function collectItem(it) {
   if (it.type === 'power') {
     if (powerRank() < 3) power = Math.min(9, power + 1);
     score += 50;
+    powerItemsCollected++; // 集計用
   } else if (it.type === 'life') {
     lifeItemCount++;
     score += 100;
@@ -78,6 +79,7 @@ function updateCollectPhase() {
     if (items.length === 0 || collectPhaseTimer <= 0) {
       collectPhase = false;
       state = 'clear';
+      summaryTimer = 0; // クリア集計画面のタイマーを 0 から始める
     }
   }
 }
