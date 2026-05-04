@@ -54,6 +54,11 @@ canvas.addEventListener('touchstart', e => {
     bossIntroTimer = 0;
     return;
   }
+  // スペルカード突入カットイン中: タップでスキップ
+  if (state === 'spellCutin') {
+    spellCutinTimer = 0;
+    return;
+  }
   // ポーズ画面のメニュータップ
   if (state === 'paused') {
     const cx = PX + PW/2;
