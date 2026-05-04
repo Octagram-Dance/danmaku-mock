@@ -73,6 +73,23 @@ function hit() {
 function drawPlayer() {
   // 自機 (無敵中は点滅)
   const slowMode = isSlowMode();
+  // 常時うっすら漂うオーラ (通常: 青白、低速時: ピンク)
+  // 無敵中の点滅と連動させて、機体非表示時はオーラも非表示
+  if (player.invuln === 0 || frame % 4 < 2) {
+    const ambR0 = 6, ambR1 = 30;
+    const ambGrad = ctx.createRadialGradient(player.x, player.y, ambR0, player.x, player.y, ambR1);
+    if (slowMode) {
+      ambGrad.addColorStop(0, 'rgba(255, 100, 200, 0.45)');
+      ambGrad.addColorStop(1, 'rgba(255, 100, 200, 0)');
+    } else {
+      ambGrad.addColorStop(0, 'rgba(170, 230, 255, 0.28)');
+      ambGrad.addColorStop(1, 'rgba(170, 230, 255, 0)');
+    }
+    ctx.fillStyle = ambGrad;
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, ambR1, 0, Math.PI*2);
+    ctx.fill();
+  }
   // ボム発動中のオーラ
   if (bombActive) {
     const auraR = 20 + Math.sin(frame * 0.3) * 6;

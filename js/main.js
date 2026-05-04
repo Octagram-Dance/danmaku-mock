@@ -32,7 +32,9 @@ let selectedDifficulty = 'Normal';
 let bossOnlyMode = false;
 
 let player, playerBullets, homingBullets, enemies, enemyBullets, items, particles;
+let floatTexts; // スコア取得時のフローティングテキスト
 let bombs, bombActive, bombTimer; // ボム機能用
+let bombFlash; // ボム発動瞬間の全画面フラッシュ強度 (0〜30)
 let screenFlash; // 被弾時など画面演出用
 let collectPhase, collectPhaseTimer; // ボス撃破後のアイテム回収フェーズ
 let score, life, power, lifeItemCount, frame;
@@ -55,6 +57,7 @@ function startGame(stage, fromBossOnly) {
   enemyBullets = [];
   items = [];
   particles = [];
+  floatTexts = [];
   score = 0;
   life = 5;
   power = 0;
@@ -62,6 +65,7 @@ function startGame(stage, fromBossOnly) {
   bombs = 3;             // ボム所持数
   bombActive = false;    // ボム発動中フラグ
   bombTimer = 0;         // ボム発動残り時間
+  bombFlash = 0;         // ボム発動瞬間のフラッシュ強度
   screenFlash = 0;       // 画面フラッシュ強度
   collectPhase = false;
   collectPhaseTimer = 0;
@@ -96,8 +100,10 @@ function nextStage() {
   enemyBullets = [];
   items = [];
   particles = [];
+  floatTexts = [];
   bombActive = false;
   bombTimer = 0;
+  bombFlash = 0;
   screenFlash = 0;
   // ステージ進行カウンタリセット
   stageEnemiesKilled = 0;
@@ -187,6 +193,7 @@ function update() {
     updateItems();
     updateCollectPhase();
     updateParticles();
+    updateFloatTexts();
   }
 
   if (state === 'title' || state === 'stageSelect' || state === 'difficulty') {
@@ -254,7 +261,9 @@ function drawGame() {
   drawEnemyBullets();
   drawParticles();
   drawPlayer();
+  drawFloatTexts();
   drawBombShockwave();
+  drawBombFlash();
   drawScreenFlash();
 
   ctx.restore();

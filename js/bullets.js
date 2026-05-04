@@ -53,6 +53,7 @@ function checkPlayerBulletHits() {
         if (e === boss && boss.hp <= 0 && boss.pattern >= SPELL_CARDS.length - 1) {
           explode(boss.x, boss.y, '#ffccff', 60);
           score += 50000;
+          spawnScoreText(boss.x, boss.y, '+50000', '#ffcc44');
           for (let i = 0; i < 8; i++) spawnItem(boss.x + (Math.random()-0.5)*40, boss.y, 'power');
           for (let i = 0; i < 5; i++) spawnItem(boss.x + (Math.random()-0.5)*40, boss.y, 'life');
           boss = null;
@@ -89,14 +90,22 @@ function checkEnemyBulletPlayerCollision() {
 }
 
 function drawPlayerBullets() {
-  // 自機弾 (青白色の細い矢)
+  // 自機弾 (青白色の細い矢) + 淡い青白グロー
+  ctx.save();
+  ctx.shadowBlur = 8;
+  ctx.shadowColor = '#aaffff';
   ctx.fillStyle = '#aaffff';
   playerBullets.forEach(b => {
     ctx.fillRect(b.x - 2, b.y - 6, 4, 12);
   });
+  ctx.restore();
 }
 
 function drawHomingBullets() {
+  // ホーミング弾は強めの黄色グロー
+  ctx.save();
+  ctx.shadowBlur = 12;
+  ctx.shadowColor = '#ffff88';
   homingBullets.forEach(b => {
     ctx.fillStyle = '#ffff88';
     ctx.beginPath();
@@ -107,12 +116,16 @@ function drawHomingBullets() {
     ctx.arc(b.x-1, b.y-1, b.r/2, 0, Math.PI*2);
     ctx.fill();
   });
+  ctx.restore();
 }
 
 function drawEnemyBullets() {
-  // 敵弾 (アイテムと差別化: 円形・色のみ・小さめ)
+  // 敵弾 (アイテムと差別化: 円形・色のみ・小さめ) + 弾色を継承したグロー
+  ctx.save();
+  ctx.shadowBlur = 6;
   enemyBullets.forEach(b => {
     if (b.fading) ctx.globalAlpha = Math.max(0, 1 - (b.fadeTimer || 0) / 30);
+    ctx.shadowColor = b.color;
     // 弾の縁
     ctx.fillStyle = b.color;
     ctx.beginPath();
@@ -125,4 +138,5 @@ function drawEnemyBullets() {
     ctx.fill();
     ctx.globalAlpha = 1;
   });
+  ctx.restore();
 }
