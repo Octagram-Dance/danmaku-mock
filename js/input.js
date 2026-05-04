@@ -22,7 +22,12 @@ window.addEventListener('keyup', e => {
   if (e.key === 'Shift') keys['Shift'] = false;
 });
 
-let touchActive = false, touchOffsetX = 0, touchOffsetY = 0;
+// 相対ドラッグ方式: 画面のどこに触れても、その瞬間の指位置 (touchAnchor) と
+// 自機位置 (playerAnchor) を起点に、移動分 (delta) を自機位置に加算する。
+// プレイ領域の外でドラッグを始めても自機が追従するので、画面の小さな端末でも操作しやすい。
+let touchActive = false;
+let touchAnchorX = 0, touchAnchorY = 0;   // ドラッグ開始時の指位置 (canvas 座標)
+let playerAnchorX = 0, playerAnchorY = 0; // ドラッグ開始時の自機位置
 let touchSlowMode = false;
 let touchStartTime = 0;
 function getCanvasPos(clientX, clientY) {
@@ -40,16 +45,16 @@ canvas.addEventListener('touchstart', e => {
   }
   const t = e.touches[0];
   const p = getCanvasPos(t.clientX, t.clientY);
-  // ボムボタン判定 (右下)
+  // ボムボタン判定 (右下) — 視覚半径 28、タップ判定は +10 の 38 (押しやすさ重視)
   if (state === 'play') {
     const bx = PX + PW - 50, by = PY + PH - 50;
-    if (Math.hypot(p.x - bx, p.y - by) < 32) {
+    if (Math.hypot(p.x - bx, p.y - by) < 38) {
       useBomb();
       return;
     }
-    // ポーズボタン判定 (右上)
+    // ポーズボタン判定 (右上) — 視覚半径 18、タップ判定は +10 の 28
     const px2 = PX + PW - 30, py2 = PY + 30;
-    if (Math.hypot(p.x - px2, p.y - py2) < 22) {
+    if (Math.hypot(p.x - px2, p.y - py2) < 28) {
       state = 'paused';
       pauseMenuIndex = 0;
       return;
@@ -84,9 +89,12 @@ canvas.addEventListener('touchstart', e => {
       }
     }
   }
-  if (state === 'play' && p.x >= PX && p.x <= PX+PW && p.y >= PY && p.y <= PY+PH) {
-    touchOffsetX = player.x - p.x;
-    touchOffsetY = player.y - p.y;
+  // 'play' なら画面のどこを触ってもドラッグ開始 (相対ドラッグ方式、プレイ領域外も OK)
+  if (state === 'play') {
+    touchAnchorX = p.x;
+    touchAnchorY = p.y;
+    playerAnchorX = player.x;
+    playerAnchorY = player.y;
     touchActive = true;
     touchStartTime = Date.now();
   } else {
@@ -99,8 +107,11 @@ canvas.addEventListener('touchmove', e => {
   if (e.touches.length >= 2) touchSlowMode = true;
   const t = e.touches[0];
   const p = getCanvasPos(t.clientX, t.clientY);
-  player.x = clamp(p.x + touchOffsetX, PX+10, PX+PW-10);
-  player.y = clamp(p.y + touchOffsetY, PY+10, PY+PH-10);
+  // 相対ドラッグ: 指の移動量だけ自機位置を動かす (clamp でプレイ領域に収める)
+  const dx = p.x - touchAnchorX;
+  const dy = p.y - touchAnchorY;
+  player.x = clamp(playerAnchorX + dx, PX+10, PX+PW-10);
+  player.y = clamp(playerAnchorY + dy, PY+10, PY+PH-10);
 }, { passive: false });
 canvas.addEventListener('touchend', e => {
   e.preventDefault();

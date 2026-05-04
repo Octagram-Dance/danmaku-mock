@@ -33,8 +33,8 @@ let bossOnlyMode = false;
 
 let player, playerBullets, homingBullets, enemies, enemyBullets, items, particles;
 let floatTexts; // スコア取得時のフローティングテキスト
-let grazeRings; // グレイズ時の緑の輪エフェクト
 let grazeCount; // ステージを跨いで累積するグレイズ回数 (startGame でのみリセット)
+let grazeFlashTimer; // グレイズ発生瞬間に HUD カウンターを光らせる残フレーム (15F)
 let bombs, bombActive, bombTimer; // ボム機能用
 let bombFlash; // ボム発動瞬間の全画面フラッシュ強度 (0〜30)
 let screenFlash; // 被弾時など画面演出用
@@ -75,8 +75,8 @@ function startGame(stage, fromBossOnly) {
   items = [];
   particles = [];
   floatTexts = [];
-  grazeRings = [];
   grazeCount = 0;
+  grazeFlashTimer = 0;
   score = 0;
   life = 5;
   power = 0;
@@ -133,8 +133,7 @@ function nextStage() {
   enemyBullets = [];
   items = [];
   particles = [];
-  floatTexts = [];
-  grazeRings = []; // grazeCount は引き継ぎ
+  floatTexts = []; // grazeCount は引き継ぎ
   bombActive = false;
   bombTimer = 0;
   bombFlash = 0;
@@ -221,6 +220,8 @@ function startStageTransition() {
 
 function update() {
   frame++;
+  // グレイズ時の HUD フラッシュ用 (visual-only、state に関係なく毎F減衰)
+  if (grazeFlashTimer > 0) grazeFlashTimer--;
 
   if (state === 'play') {
     // ポーズ切替
@@ -236,7 +237,6 @@ function update() {
       updateScreenFlash();
       updateParticles();
       updateFloatTexts();
-      updateGrazeRings();
       if (bombFlash > 0) bombFlash--;
       for (const k in justPressed) justPressed[k] = false;
       return;
@@ -265,7 +265,6 @@ function update() {
     updateCollectPhase();
     updateParticles();
     updateFloatTexts();
-    updateGrazeRings();
   }
 
   if (state === 'title' || state === 'stageSelect' || state === 'difficulty') {
@@ -339,7 +338,6 @@ function update() {
     updateScreenFlash();
     updateParticles();
     updateFloatTexts();
-    updateGrazeRings();
     if (bombFlash > 0) bombFlash--;
     if (bossIntroTimer <= 0) {
       spawnBoss();
@@ -357,7 +355,6 @@ function update() {
     updateScreenFlash();
     updateParticles();
     updateFloatTexts();
-    updateGrazeRings();
     if (bombFlash > 0) bombFlash--;
     if (spellCutinTimer <= 0) {
       state = 'play';
@@ -387,7 +384,6 @@ function update() {
     updateScreenFlash();
     updateParticles();
     updateFloatTexts();
-    updateGrazeRings();
     if (bombFlash > 0) bombFlash--;
     if (midBossIntroTimer <= 0) {
       state = 'play';
@@ -453,7 +449,6 @@ function drawGame() {
   drawMidBoss();
   drawBoss();
   drawEnemyBullets();
-  drawGrazeRings();
   drawParticles();
   drawPlayer();
   drawFloatTexts();
@@ -477,4 +472,21 @@ function drawGame() {
   drawStateOverlays();
 }
 
-function loop() { updateFpsCounter(); update(); draw(); requestAnimationFrame(loop); }
+// 60fps 固定キャップ: 高リフレッシュレート (120Hz の ProMotion 等) でも update が
+// 約 60Hz で回るように、前回 update から 16.67ms 経つまでは新しい update をスキップする。
+// 描画は update が走った時だけ呼ぶ (60Hz 表示と同等。120Hz 上では 1フレーム置きに描画)。
+const FIXED_DT_MS = 1000 / 60;
+const UPDATE_THRESHOLD_MS = FIXED_DT_MS - 1; // 60Hz の僅かな揺れも吸収するためのトレランス
+let _loopLastUpdateMs = 0;
+
+function loop() {
+  const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+  if (_loopLastUpdateMs === 0) _loopLastUpdateMs = now - FIXED_DT_MS; // 初回は即 update
+  if (now - _loopLastUpdateMs >= UPDATE_THRESHOLD_MS) {
+    _loopLastUpdateMs = now;
+    updateFpsCounter();
+    update();
+    draw();
+  }
+  requestAnimationFrame(loop);
+}

@@ -81,6 +81,8 @@ function checkPlayerBulletHits() {
 
 function moveAndFilterEnemyBullets() {
   enemyBullets = enemyBullets.filter(b => {
+    // グレイズ閃光のフェードは凍結状態とは独立して常に減衰
+    if (b._grazeFlash > 0) b._grazeFlash--;
     // 凍結中: 移動しない (画面端判定のみ通過)
     if (b.freezeTimer > 0) {
       b.freezeTimer--;
@@ -124,9 +126,13 @@ function checkEnemyBulletPlayerCollision() {
       b._grazed = true;
       grazeCount++;
       score += 50;
-      spawnGrazeRing(b.x, b.y);
-      // 緑の +50 テキスト (10px、控えめ)
-      spawnScoreText(b.x, b.y, '+50', '#88ff88', 10);
+      // フィードバック (主張は弱めだが確実に伝わる演出):
+      //  - 弾そのものを 12F 白く閃光させる (_grazeFlash)
+      //  - HUD の Graze カウンタを 15F フラッシュ
+      //  - 緑の +50 を控えめに表示 (8px、半透明、40F、敵弾の視認性を阻害しない)
+      b._grazeFlash = 12;
+      grazeFlashTimer = 15;
+      spawnScoreText(b.x, b.y, '+50', '#88ff88', 8, 40, 0.5);
     }
   });
 }
@@ -178,6 +184,24 @@ function drawEnemyBullets() {
     ctx.beginPath();
     ctx.arc(b.x - 1.5, b.y - 1.5, b.r * 0.45, 0, Math.PI*2);
     ctx.fill();
+    // グレイズ閃光: 弾の上に白い半透明ハロー (12F でフェード)
+    // 中心は透明にして弾本体の視認性を保ち、弾の縁付近で最大 → 外側へフェード
+    if (b._grazeFlash > 0) {
+      const t = b._grazeFlash / 12;
+      const flashR = b.r * 2.5;
+      const grad = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, flashR);
+      grad.addColorStop(0, `rgba(255, 255, 255, ${t * 0.35})`);  // 中心は控えめ (弾を隠さない)
+      grad.addColorStop(0.4, `rgba(255, 255, 255, ${t * 0.85})`); // 弾の縁付近で最大
+      grad.addColorStop(1, 'rgba(255, 255, 255, 0)');             // 外側で透明
+      ctx.save();
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = '#ffffff';
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, flashR, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
     ctx.globalAlpha = 1;
   });
   ctx.restore();
