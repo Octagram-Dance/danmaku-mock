@@ -191,7 +191,17 @@ function checkBossPlayerCollision() {
 
 function drawBoss() {
   if (boss) {
-    // ピンクのオーラ (画像の下に維持)
+    // 外側の柔らかい発光層 (大きく薄く、ゆっくり脈動)
+    const softR = boss.r * 2.6 + Math.sin(frame*0.05)*6;
+    const softGrad = ctx.createRadialGradient(boss.x, boss.y, boss.r * 0.8, boss.x, boss.y, softR);
+    softGrad.addColorStop(0, 'rgba(255, 200, 230, 0.25)');
+    softGrad.addColorStop(0.6, 'rgba(255, 150, 210, 0.12)');
+    softGrad.addColorStop(1, 'rgba(255, 150, 210, 0)');
+    ctx.fillStyle = softGrad;
+    ctx.beginPath();
+    ctx.arc(boss.x, boss.y, softR, 0, Math.PI*2);
+    ctx.fill();
+    // 既存のピンクオーラ (画像の下に維持)
     const auraR = boss.r + 8 + Math.sin(frame*0.1)*4;
     const grad2 = ctx.createRadialGradient(boss.x, boss.y, boss.r, boss.x, boss.y, auraR);
     grad2.addColorStop(0, 'rgba(255,100,200,0.6)');

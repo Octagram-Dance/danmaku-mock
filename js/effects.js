@@ -13,6 +13,7 @@ function useBomb() {
   bombs--;
   bombActive = true;
   bombTimer = 180; // 3秒間 (ボム演出+無敵)
+  bombFlash = 30; // 発動瞬間の全画面フラッシュ
   // 画面の弾をすべて消す (派手にエフェクト)
   enemyBullets.forEach(b => {
     for (let i = 0; i < 2; i++) {
@@ -21,6 +22,18 @@ function useBomb() {
     }
   });
   enemyBullets = [];
+  // 自機周辺から放射状の発光パーティクル (波紋の縁を彩る)
+  for (let i = 0; i < 40; i++) {
+    const a = (i / 40) * Math.PI * 2 + Math.random() * 0.1;
+    const s = 5 + Math.random() * 3;
+    particles.push({
+      x: player.x, y: player.y,
+      vx: Math.cos(a) * s,
+      vy: Math.sin(a) * s,
+      life: 35,
+      color: i % 2 === 0 ? '#aaddff' : '#ffffff'
+    });
+  }
   // ボムによるダメージ
   enemies.forEach(e => {
     e.hp -= 4;
@@ -53,6 +66,7 @@ function updateBomb() {
     }
     if (bombTimer <= 0) bombActive = false;
   }
+  if (bombFlash > 0) bombFlash--;
 }
 
 function updateScreenFlash() {
@@ -110,4 +124,59 @@ function drawScreenFlash() {
     ctx.fillRect(PX, PY, PW, PH);
     ctx.restore();
   }
+}
+
+function drawBombFlash() {
+  // ボム発動瞬間の全画面フラッシュ (青白)
+  if (bombFlash > 0) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(PX, PY, PW, PH);
+    ctx.clip();
+    ctx.fillStyle = `rgba(220, 240, 255, ${(bombFlash / 30) * 0.5})`;
+    ctx.fillRect(PX, PY, PW, PH);
+    ctx.restore();
+  }
+}
+
+// スコア取得時のフローティングテキスト
+function spawnScoreText(x, y, text, color) {
+  // 同時発生時に重ならないよう少しランダムにずらす
+  const ox = (Math.random() - 0.5) * 18;
+  const oy = (Math.random() - 0.5) * 8;
+  floatTexts.push({
+    x: x + ox,
+    y: y + oy,
+    text,
+    color: color || '#ffffff',
+    life: 60,    // 1秒 @60fps
+    maxLife: 60,
+    vy: -0.9     // ふわっと上昇
+  });
+}
+
+function updateFloatTexts() {
+  floatTexts.forEach(t => {
+    t.y += t.vy;
+    t.vy *= 0.96; // 徐々に減速
+    t.life--;
+  });
+  floatTexts = floatTexts.filter(t => t.life > 0);
+}
+
+function drawFloatTexts() {
+  if (floatTexts.length === 0) return;
+  ctx.save();
+  ctx.font = 'bold 13px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.shadowBlur = 4;
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+  floatTexts.forEach(t => {
+    // 後半30フレームでフェードアウト
+    const alpha = Math.min(1, t.life / 30);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = t.color;
+    ctx.fillText(t.text, t.x, t.y);
+  });
+  ctx.restore();
 }

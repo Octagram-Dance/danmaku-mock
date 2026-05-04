@@ -118,7 +118,9 @@ function killEnemy(e) {
   explode(e.x, e.y, e.color, e.type === 'tank' ? 24 : 12);
   // タイプ別スコア
   const scoreTable = { normal: 100, spread: 200, fast: 80, swayer: 250, tank: 800 };
-  score += scoreTable[e.type] || 100;
+  const gained = scoreTable[e.type] || 100;
+  score += gained;
+  spawnScoreText(e.x, e.y, '+' + gained, e.type === 'tank' ? '#ffcc44' : '#ffffff');
   stageEnemiesKilled++;
   // タイプ別ドロップ
   const r = Math.random();
@@ -272,6 +274,16 @@ function enemyImageSize(type) {
 
 function drawEnemies() {
   enemies.forEach(e => {
+    // タイプ色を継承したうっすらオーラ (画像/形状の下に描画)
+    const r1 = e.r * 1.9;
+    const g = ctx.createRadialGradient(e.x, e.y, e.r * 0.4, e.x, e.y, r1);
+    g.addColorStop(0, e.color + '66'); // alpha約40%
+    g.addColorStop(1, e.color + '00'); // 透明
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, r1, 0, Math.PI*2);
+    ctx.fill();
+    // 本体
     if (drawImageCentered(`enemy_${e.type}`, e.x, e.y, enemyImageSize(e.type))) return;
     drawEnemyFallback(e);
   });
