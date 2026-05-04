@@ -438,6 +438,9 @@ function drawStateOverlays() {
   } else if (state === 'spellCutin') {
     // スペルカード突入カットイン本体は boss.js の drawSpellCutin が描画
     drawSpellCutin();
+  } else if (state === 'midBossIntro') {
+    // 中ボス出現カットイン本体は midboss.js の drawMidBossIntro が描画
+    drawMidBossIntro();
   }
 }
 

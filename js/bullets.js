@@ -40,31 +40,36 @@ function fadeOutEnemyBullets() {
 }
 
 function checkPlayerBulletHits() {
-  const allHittable = bossActive && boss ? [boss, ...enemies] : enemies;
+  // ボス・中ボス・雑魚を統合した hit 候補リスト
+  const allHittable = enemies.slice();
+  if (midBossActive && midBoss) allHittable.unshift(midBoss);
+  if (bossActive && boss) allHittable.unshift(boss);
   [...playerBullets, ...homingBullets].forEach(b => {
     allHittable.forEach(e => {
       if (b._consumed) return;
       // ボスはスペル開始演出中・スペル切替直後は無敵
       if (e === boss && (boss.spellAnnounceTimer > 0 || boss.invulnAfterSpell > 0)) return;
+      // 中ボスは入場中は無敵 (スライドダウン中)
+      if (e === midBoss && midBoss.entering) return;
       if (Math.hypot(b.x - e.x, b.y - e.y) < e.r + b.r) {
-        e.hp -= 1; // ホーミングも通常弾も同じ1ダメージ (ホーミングは攻撃範囲で勝負)
+        e.hp -= 1; // ホーミングも通常弾も同じ1ダメージ
         b._consumed = true;
-        // ボス完全撃破: 最後のスペルカードのHPが尽きたとき
+        // ボス完全撃破
         if (e === boss && boss.hp <= 0 && boss.pattern >= boss.spellCards.length - 1) {
           explode(boss.x, boss.y, '#ffccff', 60);
           score += 50000;
           spawnScoreText(boss.x, boss.y, '+50000', '#ffcc44');
-          // ボス撃破の手応え: 短いヒットストップ
           hitStopFrames = 6;
           for (let i = 0; i < 8; i++) spawnItem(boss.x + (Math.random()-0.5)*40, boss.y, 'power');
           for (let i = 0; i < 5; i++) spawnItem(boss.x + (Math.random()-0.5)*40, boss.y, 'life');
           boss = null;
           bossActive = false;
           stageCleared = true;
-          // アイテム全回収フェーズに入る (画面上のアイテム全部をホーミング状態に)
           collectPhase = true;
-          collectPhaseTimer = 240; // 最大4秒待つ
-        } else if (e !== boss && e.hp <= 0) {
+          collectPhaseTimer = 240;
+        } else if (e === midBoss && midBoss.hp <= 0) {
+          killMidBoss();
+        } else if (e !== boss && e !== midBoss && e.hp <= 0) {
           killEnemy(e);
         }
       }

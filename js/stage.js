@@ -4,8 +4,18 @@ function checkBossSpawnTrigger() {
   // ステージ進行: 倒した数 + 逃げた数 が総数に達したらボス出現カットインへ
   // state==='play' の間だけトリガー (bossIntro 中の再トリガー防止)
   const stageProgress = stageEnemiesKilled + stageEnemiesPassed;
-  if (state === 'play' && !bossActive && !stageCleared && stageProgress >= stageEnemyTotal) {
+  if (state === 'play' && !bossActive && !midBossActive && !stageCleared && stageProgress >= stageEnemyTotal) {
     startBossIntro();
+  }
+}
+
+// 中ボスは雑魚 20 体到達時点で 1 度だけ出現。撃破まで雑魚 spawn は停止。
+function checkMidBossSpawnTrigger() {
+  if (state !== 'play') return;
+  if (midBossSpawned || midBossActive || bossActive || stageCleared) return;
+  const stageProgress = stageEnemiesKilled + stageEnemiesPassed;
+  if (stageProgress >= 20) {
+    startMidBossIntro();
   }
 }
 

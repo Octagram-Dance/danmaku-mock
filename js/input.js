@@ -6,6 +6,12 @@ window.addEventListener('keydown', e => {
   if (!keys[e.key]) justPressed[e.key] = true;
   keys[e.key] = true;
   if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' ','Enter','z','Z','x','X','p','P','Escape','Shift'].includes(e.key)) e.preventDefault();
+  // F3: FPS 表示切替 (ブラウザ既定の検索バー起動を抑制)
+  if (e.key === 'F3') {
+    e.preventDefault();
+    fpsVisible = !fpsVisible;
+    saveFpsVisible(fpsVisible);
+  }
 });
 window.addEventListener('keyup', e => keys[e.key] = false);
 // Shift特別対応 (左右どちらも)
@@ -57,6 +63,11 @@ canvas.addEventListener('touchstart', e => {
   // スペルカード突入カットイン中: タップでスキップ
   if (state === 'spellCutin') {
     spellCutinTimer = 0;
+    return;
+  }
+  // 中ボス出現カットイン中: タップでスキップ
+  if (state === 'midBossIntro') {
+    midBossIntroTimer = 0;
     return;
   }
   // ポーズ画面のメニュータップ

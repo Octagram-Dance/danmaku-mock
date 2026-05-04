@@ -146,7 +146,8 @@ function killEnemy(e) {
 }
 
 function maybeSpawnEnemy() {
-  if (!bossActive && !stageCleared && stageEnemiesSpawned < stageEnemyTotal) {
+  // 中ボス出現中・本ボス中・クリア済みは雑魚 spawn を停止
+  if (!bossActive && !midBossActive && !stageCleared && stageEnemiesSpawned < stageEnemyTotal) {
     spawnTimer--;
     if (spawnTimer <= 0) {
       spawnEnemy();
