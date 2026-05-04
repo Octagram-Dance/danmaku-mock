@@ -81,12 +81,29 @@ function moveAndFilterEnemyBullets() {
   });
 }
 
+// グレイズ判定の半径 (player 中心からの距離)。
+// player.hitR=2 より十分大きく、機体本体より少し外側。
+const GRAZE_R = 18;
+
 function checkEnemyBulletPlayerCollision() {
+  // ボム発動中・無敵中はグレイズしない (被弾もしないので妥当)
+  const canGraze = !bombActive && player.invuln <= 0;
   enemyBullets.forEach((b, i) => {
-    // 自機の判定は中心の小さな丸だけ
-    if (Math.hypot(b.x - player.x, b.y - player.y) < b.r * 0.7 + player.hitR) {
+    const dist = Math.hypot(b.x - player.x, b.y - player.y);
+    // 被弾チェック (既存のまま)
+    if (dist < b.r * 0.7 + player.hitR) {
       enemyBullets.splice(i, 1);
       hit();
+      return;
+    }
+    // グレイズ: 同じ弾は1回だけカウント (_grazed で記録)
+    if (canGraze && !b._grazed && dist < GRAZE_R + b.r) {
+      b._grazed = true;
+      grazeCount++;
+      score += 50;
+      spawnGrazeRing(b.x, b.y);
+      // 緑の +50 テキスト (10px、控えめ)
+      spawnScoreText(b.x, b.y, '+50', '#88ff88', 10);
     }
   });
 }
