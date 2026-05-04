@@ -183,11 +183,18 @@ function drawHUD() {
   y += 26;
 
   // Graze (累計グレイズ数、緑、6桁ゼロパディング)
+  // グレイズ発生瞬間: grazeFlashTimer (max 15) > 0 の間、フォントを少し大きく + 明るい緑にフラッシュ
   ctx.fillStyle = '#aaffff';
   ctx.font = '14px sans-serif';
   ctx.fillText('Graze', x, y);
-  ctx.fillStyle = '#88ff88';
-  ctx.font = 'bold 18px monospace';
+  if (grazeFlashTimer > 0) {
+    const flashT = grazeFlashTimer / 15; // 1→0
+    ctx.fillStyle = '#ccffcc';            // 明るい緑
+    ctx.font = `bold ${18 + 4 * flashT}px monospace`; // 22 → 18 にスムーズ縮小
+  } else {
+    ctx.fillStyle = '#88ff88';
+    ctx.font = 'bold 18px monospace';
+  }
   ctx.fillText(grazeCount.toString().padStart(6, '0'), x + 70, y + 2);
   y += 26;
 

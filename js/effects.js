@@ -150,27 +150,31 @@ function drawBombFlash() {
 }
 
 // スコア取得時のフローティングテキスト
-// size 省略時は 13px (敵撃破やボス用)。グレイズ等は 10px を渡してサイズダウン。
-function spawnScoreText(x, y, text, color, size) {
-  // 同時発生時に重ならないよう少しランダムにずらす
+// オプション引数:
+//   size      = フォントサイズ (px、デフォルト 13)
+//   life      = 寿命フレーム数 (デフォルト 60)、後半 life/2 フレームでフェードアウト
+//   baseAlpha = 最大不透明度 (デフォルト 1.0、控えめに見せたい時に 0.5 などを指定)
+function spawnScoreText(x, y, text, color, size, life, baseAlpha) {
   const ox = (Math.random() - 0.5) * 18;
   const oy = (Math.random() - 0.5) * 8;
+  const lifeF = life || 60;
   floatTexts.push({
     x: x + ox,
     y: y + oy,
     text,
     color: color || '#ffffff',
     size: size || 13,
-    life: 60,    // 1秒 @60fps
-    maxLife: 60,
-    vy: -0.9     // ふわっと上昇
+    life: lifeF,
+    maxLife: lifeF,
+    baseAlpha: baseAlpha != null ? baseAlpha : 1,
+    vy: -0.9
   });
 }
 
 function updateFloatTexts() {
   floatTexts.forEach(t => {
     t.y += t.vy;
-    t.vy *= 0.96; // 徐々に減速
+    t.vy *= 0.96;
     t.life--;
   });
   floatTexts = floatTexts.filter(t => t.life > 0);
@@ -183,40 +187,14 @@ function drawFloatTexts() {
   ctx.shadowBlur = 4;
   ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
   floatTexts.forEach(t => {
-    // 後半30フレームでフェードアウト
-    const alpha = Math.min(1, t.life / 30);
+    // フェードアウト範囲: maxLife/2 で 1→0、それ以前は baseAlpha 一定
+    const fadeWindow = Math.max(1, (t.maxLife || 60) / 2);
+    const fadeFactor = Math.min(1, t.life / fadeWindow);
+    const alpha = fadeFactor * (t.baseAlpha != null ? t.baseAlpha : 1);
     ctx.globalAlpha = alpha;
     ctx.font = `bold ${t.size || 13}px sans-serif`;
     ctx.fillStyle = t.color;
     ctx.fillText(t.text, t.x, t.y);
-  });
-  ctx.restore();
-}
-
-// グレイズ時の緑の輪 (短命: 20F で半径15→30、α 1→0)
-function spawnGrazeRing(x, y) {
-  grazeRings.push({ x, y, life: 20, maxLife: 20 });
-}
-
-function updateGrazeRings() {
-  grazeRings.forEach(g => g.life--);
-  grazeRings = grazeRings.filter(g => g.life > 0);
-}
-
-function drawGrazeRings() {
-  if (grazeRings.length === 0) return;
-  ctx.save();
-  ctx.lineWidth = 2;
-  ctx.shadowBlur = 8;
-  grazeRings.forEach(g => {
-    const t = 1 - g.life / g.maxLife; // 0→1
-    const r = 15 + t * 15;             // 15→30
-    const alpha = 1 - t;               // 1→0
-    ctx.strokeStyle = `rgba(136, 255, 136, ${alpha})`;
-    ctx.shadowColor = `rgba(136, 255, 136, ${alpha * 0.8})`;
-    ctx.beginPath();
-    ctx.arc(g.x, g.y, r, 0, Math.PI * 2);
-    ctx.stroke();
   });
   ctx.restore();
 }
