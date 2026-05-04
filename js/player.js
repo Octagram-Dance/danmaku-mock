@@ -40,6 +40,7 @@ function hit() {
   life--;
   explode(player.x, player.y, '#ffffff', 24);
   screenFlash = 30; // 被弾フラッシュ
+  hitStopFrames = 8; // 被弾の手応え (8F ≒ 130ms 停止)
   if (life <= 0) {
     state = 'gameOver';
     saveHiScore(selectedDifficulty, score);
@@ -133,14 +134,18 @@ function drawPlayer() {
       }
       ctx.stroke();
       ctx.restore();
-      // 中心の白点 (くっきり)
-      ctx.fillStyle = '#fff';
+      // 中心の白点 (くっきり) — 脈動 (呼吸するイメージ)
+      // 当たり判定半径 (player.hitR) は変更せず、見た目だけ ±20% で拡縮
+      const pulseT = Math.sin(frame * 0.15);
+      const pulse = 1 + pulseT * 0.2; // 0.8 〜 1.2
+      const intensity = 0.85 + pulseT * 0.15; // 0.7 〜 1.0
+      ctx.fillStyle = `rgba(255, 255, 255, ${intensity})`;
       ctx.beginPath();
-      ctx.arc(player.x, player.y, player.hitR + 1, 0, Math.PI*2);
+      ctx.arc(player.x, player.y, (player.hitR + 1) * pulse, 0, Math.PI*2);
       ctx.fill();
-      ctx.fillStyle = '#ff66cc';
+      ctx.fillStyle = `rgba(255, 102, 204, ${intensity})`; // #ff66cc + alpha
       ctx.beginPath();
-      ctx.arc(player.x, player.y, player.hitR - 0.5, 0, Math.PI*2);
+      ctx.arc(player.x, player.y, (player.hitR - 0.5) * pulse, 0, Math.PI*2);
       ctx.fill();
     } else {
       // 通常時は小さな白点

@@ -54,6 +54,8 @@ function checkPlayerBulletHits() {
           explode(boss.x, boss.y, '#ffccff', 60);
           score += 50000;
           spawnScoreText(boss.x, boss.y, '+50000', '#ffcc44');
+          // ボス撃破の手応え: 短いヒットストップ
+          hitStopFrames = 6;
           for (let i = 0; i < 8; i++) spawnItem(boss.x + (Math.random()-0.5)*40, boss.y, 'power');
           for (let i = 0; i < 5; i++) spawnItem(boss.x + (Math.random()-0.5)*40, boss.y, 'life');
           boss = null;

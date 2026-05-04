@@ -397,5 +397,43 @@ function drawStateOverlays() {
     ctx.fillStyle = 'rgba(255,255,255,0.4)';
     ctx.font = '12px sans-serif';
     ctx.fillText('↑↓で選択 / Z で決定 / P または Esc で再開', PX + PW/2, PY + PH - 40);
+  } else if (state === 'transition') {
+    // ステージ遷移: 黒フェードイン → タイトルテロップ → フェードアウト
+    // transitionTimer は 150 → 0 に減少
+    //   150-120 (30f): bg fade in 0→1
+    //   120- 30 (90f): hold black + title
+    //    30-  0 (30f): bg fade out 1→0
+    let bgAlpha;
+    if (transitionTimer > 120) {
+      bgAlpha = (150 - transitionTimer) / 30;
+    } else if (transitionTimer > 30) {
+      bgAlpha = 1;
+    } else {
+      bgAlpha = transitionTimer / 30;
+    }
+    ctx.fillStyle = `rgba(0, 0, 0, ${bgAlpha})`;
+    ctx.fillRect(PX, PY, PW, PH);
+
+    // タイトルテロップは bgAlpha が高いほど見える
+    const textAlpha = bgAlpha;
+    if (textAlpha > 0.05) {
+      const stageSubtitles = ['', '', '雪山に至る', '紅葉の地へ'];
+      const subtitle = stageSubtitles[selectedStage] || '';
+      // テロップは中央付近を少し上から下へゆっくり流す (進行に応じて下降)
+      const slideY = PY + PH/2 - 30 + (1 - bgAlpha) * 20;
+
+      ctx.textAlign = 'center';
+      ctx.shadowColor = '#ff66cc';
+      ctx.shadowBlur = 18;
+      ctx.fillStyle = `rgba(255, 220, 230, ${textAlpha})`;
+      ctx.font = 'bold 56px "Hiragino Mincho ProN", "Yu Mincho", serif';
+      ctx.fillText(`STAGE ${selectedStage}`, PX + PW/2, slideY);
+
+      ctx.shadowBlur = 12;
+      ctx.fillStyle = `rgba(255, 200, 220, ${textAlpha * 0.9})`;
+      ctx.font = 'bold 30px "Hiragino Mincho ProN", "Yu Mincho", serif';
+      ctx.fillText(subtitle, PX + PW/2, slideY + 50);
+      ctx.shadowBlur = 0;
+    }
   }
 }

@@ -36,6 +36,8 @@ let floatTexts; // スコア取得時のフローティングテキスト
 let bombs, bombActive, bombTimer; // ボム機能用
 let bombFlash; // ボム発動瞬間の全画面フラッシュ強度 (0〜30)
 let screenFlash; // 被弾時など画面演出用
+let hitStopFrames; // ヒットストップ残フレーム数 (>0 中はゲームロジック停止)
+let transitionTimer; // ステージ遷移演出の残フレーム (>0 中は state='transition')
 let collectPhase, collectPhaseTimer; // ボス撃破後のアイテム回収フェーズ
 let score, life, power, lifeItemCount, frame;
 let stageEnemiesKilled, stageEnemiesSpawned, stageEnemiesPassed, stageEnemyTotal, boss, bossActive, stageCleared;
@@ -67,6 +69,8 @@ function startGame(stage, fromBossOnly) {
   bombTimer = 0;         // ボム発動残り時間
   bombFlash = 0;         // ボム発動瞬間のフラッシュ強度
   screenFlash = 0;       // 画面フラッシュ強度
+  hitStopFrames = 0;
+  transitionTimer = 0;
   collectPhase = false;
   collectPhaseTimer = 0;
   frame = 0;
@@ -105,6 +109,7 @@ function nextStage() {
   bombTimer = 0;
   bombFlash = 0;
   screenFlash = 0;
+  hitStopFrames = 0;
   // ステージ進行カウンタリセット
   stageEnemiesKilled = 0;
   stageEnemiesSpawned = 0;
@@ -154,12 +159,20 @@ function handleClick(p) {
     if (bossOnlyMode) {
       state = 'title'; menuIndex = 0;
     } else if (selectedStage < 3) {
-      nextStage();
+      startStageTransition();
     } else {
       state = 'allClear';
       saveHiScore(selectedDifficulty, score);
     }
   }
+  // 'transition' 中はクリック/タップを無視
+}
+
+// ステージ遷移演出を開始 (黒フェードイン → タイトルテロップ → フェードアウト)
+function startStageTransition() {
+  nextStage();             // ゲーム状態を次ステージにリセット (内部で state='play')
+  state = 'transition';    // transition 状態で上書き
+  transitionTimer = 150;   // 30フェードイン + 90タイトル + 30フェードアウト = 2.5s
 }
 
 function update() {
@@ -170,6 +183,16 @@ function update() {
     if (justPressed['p'] || justPressed['P'] || justPressed['Escape']) {
       state = 'paused';
       pauseMenuIndex = 0;
+      for (const k in justPressed) justPressed[k] = false;
+      return;
+    }
+    // ヒットストップ中: ゲームロジックは止めるが、視覚演出は継続
+    if (hitStopFrames > 0) {
+      hitStopFrames--;
+      updateScreenFlash();
+      updateParticles();
+      updateFloatTexts();
+      if (bombFlash > 0) bombFlash--;
       for (const k in justPressed) justPressed[k] = false;
       return;
     }
@@ -224,13 +247,20 @@ function update() {
       if (bossOnlyMode) {
         state = 'title'; menuIndex = 0;
       } else if (selectedStage < 3) {
-        // 次ステージへ (スコア・残機・パワー・ボムを引き継ぎ)
-        nextStage();
+        // 次ステージへ遷移演出を挟む (スコア・残機・パワー・ボムは nextStage で引き継ぎ)
+        startStageTransition();
       } else {
         // 3クリア = 全クリア
         state = 'allClear';
         saveHiScore(selectedDifficulty, score);
       }
+    }
+  }
+  if (state === 'transition') {
+    // transition 中は入力受付なし、自動進行
+    transitionTimer--;
+    if (transitionTimer <= 0) {
+      state = 'play';
     }
   }
   for (const k in justPressed) justPressed[k] = false;

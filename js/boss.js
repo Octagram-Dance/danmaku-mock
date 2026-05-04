@@ -47,6 +47,8 @@ function nextSpellCard() {
   enemyBullets.forEach(b => { b.fading = true; });
   // 撃破ボーナス
   score += 30000;
+  // スペル切替の手応え: 短いヒットストップ
+  hitStopFrames = 6;
 }
 
 function bossShoot() {
@@ -260,10 +262,99 @@ function drawBossHpBar() {
   }
 }
 
+// 詠唱マナ円: ボスの周りに魔法陣 (多重円・五芒星・ルーン) が回転しながら広がる
+function drawManaCircle(cx, cy, t, color) {
+  // t: 0→1 (90F のスペル開始演出進行度)
+  const baseScale = Math.min(1, t * 1.4);  // 67%地点でフルサイズ
+  const baseR = 200 * baseScale;
+  const alpha = Math.sin(t * Math.PI) * 0.85; // 真ん中で最大、両端で0
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = color;
+
+  // ── 外側の輪 ──
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(cx, cy, baseR, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // ── 内側の輪 ──
+  ctx.beginPath();
+  ctx.arc(cx, cy, baseR * 0.78, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // ── 最内輪 ──
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(cx, cy, baseR * 0.5, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // ── 五芒星 (時計回り回転、内輪に内接) ──
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(frame * 0.04);
+  ctx.lineWidth = 2;
+  const starR = baseR * 0.78;
+  ctx.beginPath();
+  for (let i = 0; i < 5; i++) {
+    // 飛ばし頂点で星型を作る
+    const a = -Math.PI/2 + i * (Math.PI * 4 / 5);
+    const px = Math.cos(a) * starR;
+    const py = Math.sin(a) * starR;
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  ctx.stroke();
+  ctx.restore();
+
+  // ── ルーン文字風ティック (12本、外輪の外に放射、反時計回り回転) ──
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(frame * -0.025);
+  ctx.lineWidth = 1.5;
+  for (let i = 0; i < 12; i++) {
+    const a = i * Math.PI * 2 / 12;
+    const r1 = baseR;
+    const r2 = baseR + 14;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a) * r1, Math.sin(a) * r1);
+    ctx.lineTo(Math.cos(a) * r2, Math.sin(a) * r2);
+    ctx.stroke();
+    // 端点に小さな丸 (ルーン記号風)
+    const cxr = Math.cos(a) * (r2 + 5);
+    const cyr = Math.sin(a) * (r2 + 5);
+    ctx.beginPath();
+    ctx.arc(cxr, cyr, 2, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // ── 4方位のダイヤ装飾 (ゆっくり回転、塗り) ──
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(frame * 0.015);
+  ctx.fillStyle = color;
+  for (let i = 0; i < 4; i++) {
+    const a = i * Math.PI / 2;
+    const x = Math.cos(a) * baseR;
+    const y = Math.sin(a) * baseR;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(Math.PI / 4);
+    ctx.fillRect(-3, -3, 6, 6);
+    ctx.restore();
+  }
+  ctx.restore();
+
+  ctx.restore();
+}
+
 function drawSpellAnnounce() {
   // スペルカード開始演出
   if (boss && boss.spellAnnounceTimer > 0) {
     const t = 1 - (boss.spellAnnounceTimer / 90); // 0→1
+    const cardColor = SPELL_CARDS[boss.pattern].color;
     ctx.save();
     ctx.beginPath();
     ctx.rect(PX, PY, PW, PH);
@@ -271,16 +362,8 @@ function drawSpellAnnounce() {
     // 背景暗転
     ctx.fillStyle = `rgba(0, 0, 0, ${0.5 * Math.sin(t * Math.PI)})`;
     ctx.fillRect(PX, PY, PW, PH);
-    // ボス周辺の魔法陣風
-    ctx.strokeStyle = SPELL_CARDS[boss.pattern].color;
-    ctx.lineWidth = 2;
-    ctx.globalAlpha = 0.7;
-    for (let r = 30; r < 200; r += 40) {
-      ctx.beginPath();
-      ctx.arc(boss.x, boss.y, r * (0.3 + t), 0, Math.PI * 2);
-      ctx.stroke();
-    }
-    ctx.globalAlpha = 1;
+    // 詠唱マナ円
+    drawManaCircle(boss.x, boss.y, t, cardColor);
     // カード名表示 (フェードイン)
     const slideX = PX + PW/2 - (1 - t) * 200;
     ctx.fillStyle = `rgba(255, 255, 255, ${Math.sin(t * Math.PI)})`;
@@ -289,7 +372,7 @@ function drawSpellAnnounce() {
     ctx.fillText('～ Spell Card ～', slideX, PY + PH/2 - 30);
     ctx.font = 'bold 28px "Hiragino Mincho ProN", serif';
     ctx.fillStyle = `rgba(255, 220, 240, ${Math.sin(t * Math.PI)})`;
-    ctx.shadowColor = SPELL_CARDS[boss.pattern].color;
+    ctx.shadowColor = cardColor;
     ctx.shadowBlur = 16;
     ctx.fillText(SPELL_CARDS[boss.pattern].name, slideX, PY + PH/2 + 10);
     ctx.shadowBlur = 0;
