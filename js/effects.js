@@ -43,6 +43,11 @@ function useBomb() {
   if (boss && boss.spellAnnounceTimer <= 0 && boss.invulnAfterSpell <= 0) {
     boss.hp -= 80;
   }
+  // 中ボスにもボムダメージ (入場中は無敵)
+  if (midBossActive && midBoss && !midBoss.entering) {
+    midBoss.hp -= 12;
+    if (midBoss.hp <= 0) killMidBoss();
+  }
 }
 
 function updateBomb() {
@@ -64,6 +69,10 @@ function updateBomb() {
     // ボム中も少しずつボスにダメージ
     if (boss && bombTimer % 10 === 0 && boss.spellAnnounceTimer <= 0 && boss.invulnAfterSpell <= 0) {
       boss.hp -= 5;
+    }
+    if (midBossActive && midBoss && !midBoss.entering && bombTimer % 10 === 0) {
+      midBoss.hp -= 1;
+      if (midBoss.hp <= 0) killMidBoss();
     }
     if (bombTimer <= 0) bombActive = false;
   }

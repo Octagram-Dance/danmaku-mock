@@ -466,7 +466,11 @@ function spawnBoss() {
     moveLerp: move.lerp,
     teleportInterval: move.teleportInterval,
     teleportTimer: move.teleportInterval || 0,
-    teleportFlash: 0
+    teleportFlash: 0,
+    // ワープ演出強化用
+    nextWarpX: 0,
+    nextWarpY: 0,
+    afterimages: []  // { x, y, life, maxLife } の配列
   };
 }
 
@@ -522,19 +526,45 @@ function updateBoss() {
   boss.y += (boss.targetY - boss.y) * boss.moveLerp;
 
   // テレポート (ステージ1のみ teleportInterval > 0)
+  // タイマーが残り 30F になった瞬間に「次の移動先」を決定し予告マーカーを表示開始。
+  // 残り 15F から旧位置に紫の収束光が走り、0F でワープ実行+残像生成。
   if (boss.teleportInterval > 0) {
     boss.teleportTimer--;
+    if (boss.teleportTimer === 30) {
+      // 移動先を決定 (この瞬間から drawBoss が予告マーカーを描画)
+      boss.nextWarpX = PX + 60 + Math.random() * (PW - 120);
+      boss.nextWarpY = PY + 60 + Math.random() * 100;
+    }
     if (boss.teleportTimer <= 0) {
-      boss.targetX = PX + 60 + Math.random() * (PW - 120);
-      boss.targetY = PY + 60 + Math.random() * 100;
-      boss.x = boss.targetX;
-      boss.y = boss.targetY;
+      // ワープ実行
+      const oldX = boss.x, oldY = boss.y;
+      const newX = boss.nextWarpX, newY = boss.nextWarpY;
+      // 旧位置→新位置を結ぶ線上に残像を生成 (4個、20F でフェードアウト)
+      const N = 4;
+      for (let i = 1; i <= N; i++) {
+        const tt = i / (N + 1);
+        boss.afterimages.push({
+          x: oldX + (newX - oldX) * tt,
+          y: oldY + (newY - oldY) * tt,
+          life: 20,
+          maxLife: 20
+        });
+      }
+      boss.x = newX;
+      boss.y = newY;
+      boss.targetX = newX;
+      boss.targetY = newY;
       boss.teleportFlash = 30;
       boss.teleportTimer = boss.teleportInterval;
-      boss.invulnAfterSpell = Math.max(boss.invulnAfterSpell, 20); // テレポート直後 1/3 秒の保護
+      boss.invulnAfterSpell = Math.max(boss.invulnAfterSpell, 20); // 約 1/3 秒の保護
     }
   }
   if (boss.teleportFlash > 0) boss.teleportFlash--;
+  // 残像のフェード更新
+  if (boss.afterimages && boss.afterimages.length > 0) {
+    boss.afterimages.forEach(a => a.life--);
+    boss.afterimages = boss.afterimages.filter(a => a.life > 0);
+  }
 
   // HP しきい値で次のスペルへ
   if (boss.hp <= boss.patternHpMin && boss.pattern < boss.spellCards.length - 1) {
@@ -550,6 +580,64 @@ function checkBossPlayerCollision() {
 
 function drawBoss() {
   if (!boss) return;
+  // ── 残像 (ワープ直後) ──
+  // 旧位置と新位置を結ぶ線上にボス画像の半透明コピーが残り、20F でフェード。
+  if (boss.afterimages && boss.afterimages.length > 0) {
+    boss.afterimages.forEach(a => {
+      const alpha = (a.life / a.maxLife) * 0.45;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      if (!drawImageCentered(`boss_stage${selectedStage}`, a.x, a.y, 88)) {
+        ctx.fillStyle = '#aa66ff';
+        ctx.beginPath();
+        ctx.arc(a.x, a.y, boss.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    });
+  }
+  // ── ワープ予告マーカー (移動先) ──
+  // 残り 30F → 0F の間に脈動する同心円 (二重リング) を移動先に表示。
+  if (boss.teleportInterval > 0 && boss.teleportTimer > 0 && boss.teleportTimer <= 30) {
+    const t = (30 - boss.teleportTimer) / 30; // 0→1
+    const pulse = (Math.sin(frame * 0.45) + 1) / 2; // 0..1 の脈動
+    const baseR = 16 + 14 * pulse;
+    const alpha = 0.45 + 0.35 * pulse + t * 0.2; // 時間が経つほど目立つ
+    ctx.save();
+    ctx.strokeStyle = `rgba(170, 102, 255, ${Math.min(1, alpha)})`;
+    ctx.lineWidth = 2;
+    ctx.shadowBlur = 12;
+    ctx.shadowColor = 'rgba(170, 102, 255, 0.85)';
+    // 外側リング
+    ctx.beginPath();
+    ctx.arc(boss.nextWarpX, boss.nextWarpY, baseR, 0, Math.PI * 2);
+    ctx.stroke();
+    // 内側リング
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(boss.nextWarpX, boss.nextWarpY, baseR * 0.55, 0, Math.PI * 2);
+    ctx.stroke();
+    // 中心点
+    ctx.fillStyle = `rgba(220, 180, 255, ${0.6 * pulse + t * 0.4})`;
+    ctx.beginPath();
+    ctx.arc(boss.nextWarpX, boss.nextWarpY, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+  // ── 収束光 (旧位置でボスを包む紫) ──
+  // 残り 15F〜0F で現在位置の周りに紫光が集まる。
+  if (boss.teleportInterval > 0 && boss.teleportTimer > 0 && boss.teleportTimer <= 15) {
+    const t = (15 - boss.teleportTimer) / 15; // 0→1
+    const auraR = 60 - 40 * t;                // 60 → 20 へ収縮
+    const grad = ctx.createRadialGradient(boss.x, boss.y, 0, boss.x, boss.y, auraR);
+    grad.addColorStop(0, `rgba(170, 102, 255, ${t * 0.7})`);
+    grad.addColorStop(0.6, `rgba(170, 102, 255, ${t * 0.3})`);
+    grad.addColorStop(1, 'rgba(170, 102, 255, 0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(boss.x, boss.y, auraR, 0, Math.PI * 2);
+    ctx.fill();
+  }
   // 外側の柔らかい発光層 (ゆっくり脈動)
   const softR = boss.r * 2.6 + Math.sin(frame*0.05)*6;
   const softGrad = ctx.createRadialGradient(boss.x, boss.y, boss.r * 0.8, boss.x, boss.y, softR);

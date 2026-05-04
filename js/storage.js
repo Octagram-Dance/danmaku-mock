@@ -50,3 +50,18 @@ function getGrazeRecord(diff) {
   const records = loadGrazeRecords();
   return records[diff] || 0;
 }
+
+// FPS カウンター表示設定 (F3 で切替、デフォルト ON、明示的に OFF にすれば保存される)
+const FPS_VISIBLE_KEY = 'gensou_danmaku_fps_visible_v1';
+
+function loadFpsVisible() {
+  try {
+    const v = localStorage.getItem(FPS_VISIBLE_KEY);
+    if (v === null) return true;   // 未設定 (初回起動 or キー削除) はデフォルト ON
+    return v === '1';
+  } catch (e) { return true; }
+}
+
+function saveFpsVisible(v) {
+  try { localStorage.setItem(FPS_VISIBLE_KEY, v ? '1' : '0'); } catch (e) {}
+}

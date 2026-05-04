@@ -52,6 +52,11 @@ let collectPhase, collectPhaseTimer; // ボス撃破後のアイテム回収フ�
 let score, life, power, lifeItemCount, frame;
 let stageEnemiesKilled, stageEnemiesSpawned, stageEnemiesPassed, stageEnemyTotal, boss, bossActive, stageCleared;
 let spawnTimer;
+// 中ボス (Phase B)
+let midBoss;          // オブジェクト or null
+let midBossActive;    // 戦闘中フラグ
+let midBossSpawned;   // このステージで既に出現したか (再トリガー防止)
+let midBossIntroTimer; // state='midBossIntro' の残フレーム
 
 const DIFFS = ['Easy', 'Normal', 'Hard'];
 // 弾数倍率と弾速倍率を分離
@@ -101,6 +106,10 @@ function startGame(stage, fromBossOnly) {
   bossActive = false;
   stageCleared = false;
   spawnTimer = 60;
+  midBoss = null;
+  midBossActive = false;
+  midBossSpawned = false;
+  midBossIntroTimer = 0;
   if (bossOnlyMode) {
     stageEnemiesSpawned = stageEnemyTotal;
     stageEnemiesKilled = stageEnemyTotal;
@@ -149,6 +158,11 @@ function nextStage() {
   collectPhase = false;
   collectPhaseTimer = 0;
   spawnTimer = 60;
+  // 中ボス: ステージごとに再出現
+  midBoss = null;
+  midBossActive = false;
+  midBossSpawned = false;
+  midBossIntroTimer = 0;
   state = 'play';
 }
 
@@ -235,14 +249,17 @@ function update() {
     updateHomingBullets();
     maybeSpawnEnemy();
     updateEnemies();
+    updateMidBoss();
     updateBoss();
     fadeOutEnemyBullets();
     checkPlayerBulletHits();
     countAndFilterEnemies();
+    checkMidBossSpawnTrigger();
     checkBossSpawnTrigger();
     moveAndFilterEnemyBullets();
     checkEnemyBulletPlayerCollision();
     checkEnemyPlayerCollision();
+    checkMidBossPlayerCollision();
     checkBossPlayerCollision();
     updateItems();
     updateCollectPhase();
@@ -346,6 +363,36 @@ function update() {
       state = 'play';
     }
   }
+  if (state === 'midBossIntro') {
+    // Z/Enter/space/タップでスキップ可
+    if (justPressed['z'] || justPressed['Z'] || justPressed['Enter'] || justPressed[' ']) {
+      midBossIntroTimer = 0;
+    }
+    midBossIntroTimer--;
+    // bossIntro と同じ振る舞い: 自機は移動可、弾は慣性+フェード、衝突判定なし
+    const slowMode = isSlowMode();
+    const speed = slowMode ? player.slowSpeed : player.speed;
+    if (!touchActive) {
+      if (keys['ArrowLeft']) player.x -= speed;
+      if (keys['ArrowRight']) player.x += speed;
+      if (keys['ArrowUp']) player.y -= speed;
+      if (keys['ArrowDown']) player.y += speed;
+    }
+    player.x = clamp(player.x, PX+10, PX+PW-10);
+    player.y = clamp(player.y, PY+10, PY+PH-10);
+    fadeOutEnemyBullets();
+    moveAndFilterEnemyBullets();
+    updatePlayerBullets();
+    updateHomingBullets();
+    updateScreenFlash();
+    updateParticles();
+    updateFloatTexts();
+    updateGrazeRings();
+    if (bombFlash > 0) bombFlash--;
+    if (midBossIntroTimer <= 0) {
+      state = 'play';
+    }
+  }
   if (state === 'clear') {
     summaryTimer++;
   }
@@ -359,6 +406,36 @@ function draw() {
   else if (state === 'stageSelect') drawStageSelect();
   else if (state === 'difficulty') drawDifficulty();
   else drawGame();
+  drawFpsCounter();
+}
+
+// ── FPS 計測 + 表示 ──
+// 0.5 秒ごとにサンプル更新、HUD 領域右下に表示 (デフォルト ON、F3 で切替)。
+let _fpsLast = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+let _fpsFrames = 0;
+let fpsValue = 60;
+let fpsVisible = loadFpsVisible(); // 初期値は localStorage から復元 (storage.js)
+
+function updateFpsCounter() {
+  _fpsFrames++;
+  const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+  const elapsed = now - _fpsLast;
+  if (elapsed >= 500) {
+    fpsValue = (_fpsFrames * 1000) / elapsed;
+    _fpsFrames = 0;
+    _fpsLast = now;
+  }
+}
+
+function drawFpsCounter() {
+  if (!fpsVisible) return;
+  ctx.save();
+  ctx.fillStyle = '#888';
+  ctx.font = '12px monospace';
+  ctx.textAlign = 'right';
+  // HUD 領域の右下、操作説明の下
+  ctx.fillText(`FPS: ${fpsValue.toFixed(1)}`, HX + HW - 8, HY + HH - 8);
+  ctx.restore();
 }
 
 function drawGame() {
@@ -373,6 +450,7 @@ function drawGame() {
   drawHomingBullets();
   drawItems();
   drawEnemies();
+  drawMidBoss();
   drawBoss();
   drawEnemyBullets();
   drawGrazeRings();
@@ -389,6 +467,7 @@ function drawGame() {
   ctx.lineWidth = 2;
   ctx.strokeRect(PX, PY, PW, PH);
 
+  drawMidBossHpBar();
   drawBossHpBar();
   drawSpellAnnounce();
   drawSlowModeLabel();
@@ -398,4 +477,4 @@ function drawGame() {
   drawStateOverlays();
 }
 
-function loop() { update(); draw(); requestAnimationFrame(loop); }
+function loop() { updateFpsCounter(); update(); draw(); requestAnimationFrame(loop); }
