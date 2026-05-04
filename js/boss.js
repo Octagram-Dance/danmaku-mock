@@ -56,8 +56,16 @@ function nextSpellCard() {
   enemyBullets.forEach(b => { b.fading = true; });
   // 撃破ボーナス
   score += 30000;
-  // スペル切替の手応え: 短いヒットストップ
-  hitStopFrames = 6;
+  // 2-5枚目: ミニカットイン演出に突入 (90F、内部でヒットストップ相当の停止)
+  startSpellCutin();
+}
+
+// スペルカード突入カットインを開始 (state='spellCutin'、90F)。
+// 既存の hitStopFrames は cutin 終了後に二重停止しないようゼロにする。
+function startSpellCutin() {
+  state = 'spellCutin';
+  spellCutinTimer = 90;
+  hitStopFrames = 0;
 }
 
 function bossShoot() {
@@ -494,5 +502,169 @@ function drawBossIntro() {
     ctx.fillText('(Z でスキップ)', PX + PW/2, PY + PH - 14);
   }
 
+  ctx.restore();
+}
+
+// "凍符「永久凍土の檻」" → { prefix: "凍符", body: "永久凍土の檻" }
+// "通常攻撃" → { prefix: null, body: "通常攻撃" }
+function parseSpellName(name) {
+  const m = name.match(/^(.+?)「(.+)」$/);
+  if (m) return { prefix: m[1], body: m[2] };
+  return { prefix: null, body: name };
+}
+
+// ─────────────────────────────────────────────────────────
+// スペルカード突入カットイン (state='spellCutin')
+// 90F 構成 (2-5枚目のスペルカード切替時のみ発動):
+//   0-15: 薄い暗転 (α 0→0.5) + カード枠が画面右からスライドイン
+//  15-60: カード枠が中央保持。ボス画像 / フレーバー / スペル名 / Spell Card N/5 表示
+//          背景の魔法陣 (同心円+8方放射) が回転
+//  60-90: カード+暗転がフェードアウト → state='play' で既存マナ円演出に繋がる
+// ─────────────────────────────────────────────────────────
+function drawSpellCutin() {
+  if (state !== 'spellCutin' || !boss) return;
+  const TOTAL = 90;
+  const t = TOTAL - spellCutinTimer; // 0 → 90
+  const card = SPELL_CARDS[boss.pattern];
+  const cardColor = card.color;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(PX, PY, PW, PH);
+  ctx.clip();
+
+  // 1. 薄い暗転
+  let bgAlpha;
+  if (t < 15) bgAlpha = (t / 15) * 0.5;
+  else if (t < 60) bgAlpha = 0.5;
+  else bgAlpha = 0.5 * (TOTAL - t) / 30;
+  ctx.fillStyle = `rgba(0, 0, 0, ${bgAlpha})`;
+  ctx.fillRect(PX, PY, PW, PH);
+
+  // 2. カード枠 (右からスライドイン → 保持 → フェード)
+  let slideT, cardAlpha;
+  if (t < 15) {
+    const raw = t / 15;
+    slideT = 1 - Math.pow(1 - raw, 3);
+    cardAlpha = slideT;
+  } else if (t < 60) {
+    slideT = 1;
+    cardAlpha = 1;
+  } else {
+    slideT = 1;
+    cardAlpha = (TOTAL - t) / 30;
+  }
+  const cardW = 320, cardH = 380;
+  const startX = PX + PW + 80;
+  const endX = PX + PW/2 - cardW/2;
+  const cardX = startX + (endX - startX) * slideT;
+  const cardY = PY + PH/2 - cardH/2;
+
+  ctx.globalAlpha = cardAlpha;
+
+  // カード背景
+  ctx.fillStyle = 'rgba(20, 8, 30, 0.88)';
+  ctx.fillRect(cardX, cardY, cardW, cardH);
+  // カード外枠 (cardColor + glow)
+  ctx.strokeStyle = cardColor;
+  ctx.lineWidth = 3;
+  ctx.shadowBlur = 18;
+  ctx.shadowColor = cardColor;
+  ctx.strokeRect(cardX, cardY, cardW, cardH);
+  ctx.shadowBlur = 0;
+  // 内側の細い枠
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(cardX + 8, cardY + 8, cardW - 16, cardH - 16);
+
+  // 3. 中央の魔法陣風背景 (15F 経過後にじわっと出現、回転)
+  if (t > 10) {
+    const mandalaAlpha = Math.min(1, (t - 10) / 20);
+    const cx0 = cardX + cardW/2;
+    const cy0 = cardY + cardH/2;
+    ctx.save();
+    ctx.translate(cx0, cy0);
+    ctx.rotate(frame * 0.022);
+    ctx.strokeStyle = cardColor;
+    ctx.globalAlpha = cardAlpha * mandalaAlpha * 0.3;
+    ctx.lineWidth = 1.5;
+    // 同心円
+    for (let r = 35; r < 150; r += 25) {
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    // 8方放射線
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let i = 0; i < 8; i++) {
+      const a = i * Math.PI / 4;
+      ctx.moveTo(Math.cos(a) * 30, Math.sin(a) * 30);
+      ctx.lineTo(Math.cos(a) * 145, Math.sin(a) * 145);
+    }
+    ctx.stroke();
+    ctx.restore();
+    ctx.globalAlpha = cardAlpha;
+  }
+
+  // 4. ボス画像 (上部、円クリップ + cardColor の輪)
+  const bossThumbY = cardY + 80;
+  const bossR = 56;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cardX + cardW/2, bossThumbY, bossR, 0, Math.PI * 2);
+  ctx.clip();
+  if (!drawImageCentered(`boss_stage${selectedStage}`, cardX + cardW/2, bossThumbY, 130)) {
+    ctx.fillStyle = '#ff6699';
+    ctx.beginPath();
+    ctx.arc(cardX + cardW/2, bossThumbY, bossR - 4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+  ctx.strokeStyle = cardColor;
+  ctx.lineWidth = 2;
+  ctx.shadowBlur = 10;
+  ctx.shadowColor = cardColor;
+  ctx.beginPath();
+  ctx.arc(cardX + cardW/2, bossThumbY, bossR, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // 5. フレーバー "!! Spell Card !!"
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#ffe0f0';
+  ctx.font = 'bold 14px sans-serif';
+  ctx.fillText('!! Spell Card !!', cardX + cardW/2, cardY + 170);
+
+  // 6. スペル名 (前置詞「○符」+ 本体「○○○」を2段表示)
+  const nameParts = parseSpellName(card.name);
+  ctx.shadowBlur = 14;
+  ctx.shadowColor = cardColor;
+  if (nameParts.prefix) {
+    ctx.font = 'bold 22px "Hiragino Mincho ProN", "Yu Mincho", serif';
+    ctx.fillStyle = cardColor;
+    ctx.fillText(nameParts.prefix, cardX + cardW/2, cardY + 215);
+    ctx.font = 'bold 26px "Hiragino Mincho ProN", "Yu Mincho", serif';
+    ctx.fillStyle = '#fff5fa';
+    ctx.fillText(nameParts.body, cardX + cardW/2, cardY + 255);
+  } else {
+    // 「通常攻撃」等、prefix なしのカード
+    ctx.font = 'bold 28px "Hiragino Mincho ProN", "Yu Mincho", serif';
+    ctx.fillStyle = '#fff5fa';
+    ctx.fillText(card.name, cardX + cardW/2, cardY + 235);
+  }
+  ctx.shadowBlur = 0;
+
+  // 7. "Spell Card N / 5"
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+  ctx.font = 'bold 14px monospace';
+  ctx.fillText(`Spell Card ${boss.pattern + 1} / ${SPELL_CARDS.length}`, cardX + cardW/2, cardY + cardH - 42);
+
+  // 8. スキップヒント
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+  ctx.font = '11px sans-serif';
+  ctx.fillText('(Z でスキップ)', cardX + cardW/2, cardY + cardH - 18);
+
+  ctx.globalAlpha = 1;
   ctx.restore();
 }

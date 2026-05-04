@@ -41,6 +41,7 @@ let screenFlash; // 被弾時など画面演出用
 let hitStopFrames; // ヒットストップ残フレーム数 (>0 中はゲームロジック停止)
 let transitionTimer; // ステージ遷移演出の残フレーム (>0 中は state='transition')
 let bossIntroTimer; // ボス出現カットインの残フレーム (>0 中は state='bossIntro')
+let spellCutinTimer; // スペルカード突入カットインの残フレーム (>0 中は state='spellCutin')
 let summaryTimer; // クリア集計画面の経過フレーム (state='clear' 突入で 0 リセット)
 // ステージ集計用 (startGame で 0、nextStage で更新)
 let stageStartScore;
@@ -83,6 +84,7 @@ function startGame(stage, fromBossOnly) {
   hitStopFrames = 0;
   transitionTimer = 0;
   bossIntroTimer = 0;
+  spellCutinTimer = 0;
   summaryTimer = 0;
   stageStartScore = 0;
   stageStartGraze = 0;
@@ -130,6 +132,7 @@ function nextStage() {
   screenFlash = 0;
   hitStopFrames = 0;
   bossIntroTimer = 0;
+  spellCutinTimer = 0;
   summaryTimer = 0;
   // ステージ集計の起点を現在値に更新
   stageStartScore = score;
@@ -323,6 +326,23 @@ function update() {
     if (bombFlash > 0) bombFlash--;
     if (bossIntroTimer <= 0) {
       spawnBoss();
+      state = 'play';
+    }
+  }
+  if (state === 'spellCutin') {
+    // Z/Enter/space/タップでスキップ可
+    if (justPressed['z'] || justPressed['Z'] || justPressed['Enter'] || justPressed[' ']) {
+      spellCutinTimer = 0;
+    }
+    spellCutinTimer--;
+    // ヒットストップ準拠: 弾と自機は完全停止、視覚演出のみ継続
+    fadeOutEnemyBullets(); // フェードアウト処理 (動きはなし)
+    updateScreenFlash();
+    updateParticles();
+    updateFloatTexts();
+    updateGrazeRings();
+    if (bombFlash > 0) bombFlash--;
+    if (spellCutinTimer <= 0) {
       state = 'play';
     }
   }
