@@ -52,7 +52,9 @@ let stageStartGraze;
 let bombsUsed;
 let powerItemsCollected;
 let collectPhase, collectPhaseTimer; // ボス撃破後のアイテム回収フェーズ
-let score, life, power, lifeItemCount, frame;
+let score, life, power, lifeItemCount;
+let frame = 0;                       // 初回タイトル描画時の NaN 化を避けるため明示的に 0 で初期化
+let titleFirstFadeDone = false;      // タイトル初回表示時のメニューフェードインを 1 度だけ走らせるフラグ
 let stageEnemiesKilled, stageEnemiesSpawned, stageEnemiesPassed, stageEnemyTotal, boss, bossActive, stageCleared;
 let spawnTimer;
 // 中ボス (Phase B)
