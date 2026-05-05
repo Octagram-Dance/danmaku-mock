@@ -1,35 +1,97 @@
 // HUD・タイトル・メニュー・ポーズ・ゲームオーバー画面・スマホUI
 
-function drawTitle() {
-  ctx.fillStyle = 'rgba(255, 200, 220, 0.3)';
-  for (let i = 0; i < 40; i++) {
-    const x = (i * 173 + frame * 0.5) % W;
-    const y = (i * 91 + frame * (1 + i % 3 * 0.3)) % H;
-    ctx.fillRect(x, y, 3, 3);
+// パララックス夜空 (タイトル専用、canvas 全域をカバー)
+// ステージ1の背景に近い構造だが、PX/PY/PW/PH ではなく 0/0/W/H で描画する。
+function drawTitleBackground() {
+  // Layer 0: 紫の夜空グラデーション (静的)
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, '#1a0030');
+  grad.addColorStop(0.5, '#3a0050');
+  grad.addColorStop(1, '#1a0030');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Layer 1: 遠い小さな星 (slow scroll)
+  ctx.fillStyle = 'rgba(200, 200, 255, 0.4)';
+  for (let i = 0; i < 70; i++) {
+    const y = (i * 47 + frame * 0.3) % H;
+    const x = (i * 113) % W;
+    ctx.fillRect(x, y, 1, 1);
   }
+  // Layer 2: 中サイズの星
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+  for (let i = 0; i < 40; i++) {
+    const y = (i * 73 + frame * 0.65) % H;
+    const x = (i * 137) % W;
+    ctx.fillRect(x, y, 2, 2);
+  }
+  // Layer 3: 流れ星っぽい縦streak (fast scroll)
+  ctx.fillStyle = 'rgba(255, 255, 220, 0.55)';
+  for (let i = 0; i < 18; i++) {
+    const y = (i * 91 + frame * 1.1) % H;
+    const x = (i * 167) % W;
+    ctx.fillRect(x, y, 1, 4);
+  }
+  // たまに本格的な流れ星 (画面を横切る)
+  for (let i = 0; i < 3; i++) {
+    const t = (frame * 2 + i * 250) % 800;
+    if (t < 60) {
+      const startX = (i * 173) % W;
+      ctx.strokeStyle = `rgba(255, 255, 200, ${(60-t)/60 * 0.8})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(startX + t*2, t*4);
+      ctx.lineTo(startX + t*2 - 30, t*4 - 60);
+      ctx.stroke();
+    }
+  }
+}
+
+function drawTitle() {
+  // 1. パララックス夜空 (canvas 全体)
+  drawTitleBackground();
+
+  // 2. タイトルロゴ (発光が脈動)
   ctx.textAlign = 'center';
+  const titlePulse = (Math.sin(frame * 0.04) + 1) / 2; // 0..1, ゆっくり呼吸
   ctx.fillStyle = '#ffccdd';
   ctx.font = 'bold 72px "Hiragino Mincho ProN", "Yu Mincho", serif';
   ctx.shadowColor = '#ff6699';
-  ctx.shadowBlur = 20;
+  ctx.shadowBlur = 16 + titlePulse * 18; // 16..34
   ctx.fillText('幻想弾幕遊', W/2, 200);
   ctx.shadowBlur = 0;
-  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
   ctx.font = '18px serif';
   ctx.fillText('～ Gensou Danmaku Yuu ～', W/2, 240);
 
+  // 4. メニュー項目 (初回のみ stagger フェードイン + 選択中は発光脈動)
   const opts = ['はじめから遊ぶ', 'ステージ選択', 'ボスから遊ぶ'];
   ctx.font = '32px "Hiragino Mincho ProN", serif';
   opts.forEach((label, i) => {
+    let itemAlpha = 1;
+    if (!titleFirstFadeDone) {
+      // 各項目が 8F 遅れで開始、30F でフェードイン完了
+      const elapsed = frame - i * 8;
+      itemAlpha = Math.max(0, Math.min(1, elapsed / 30));
+      if (i === opts.length - 1 && elapsed >= 30) titleFirstFadeDone = true;
+    }
     const y = 360 + i * 60;
     if (i === menuIndex) {
+      // 選択中: 発光が脈動
+      const arrowPulse = (Math.sin(frame * 0.18) + 1) / 2; // 0..1
+      ctx.globalAlpha = itemAlpha;
       ctx.fillStyle = '#ffaa00';
+      ctx.shadowColor = '#ff8833';
+      ctx.shadowBlur = 6 + arrowPulse * 10; // 6..16 で脈動
       ctx.fillText('▶ ' + label + ' ◀', W/2, y);
+      ctx.shadowBlur = 0;
     } else {
-      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      ctx.globalAlpha = itemAlpha * 0.7;
+      ctx.fillStyle = '#ffffff';
       ctx.fillText(label, W/2, y);
     }
   });
+  ctx.globalAlpha = 1;
 
   // ハイスコア表示
   const scores = loadHiScores();
