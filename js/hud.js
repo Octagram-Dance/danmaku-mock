@@ -157,6 +157,131 @@ function drawStageSelect() {
   drawBackButton();
 }
 
+// ─────────────────────────────────────────────────────────
+// キャラクター選択画面
+// レイアウト:
+//   - W/2, 100             : タイトル「キャラクター選択」
+//   - W/2-200..W/2+200, 280: 3 アイコン (witch/miko/maid 後ろ姿、横並び)
+//   - W/2-220..W/2+220, 360: 選択中キャラの正面イラスト (フェードイン演出)
+//   - W/2,  600+            : 名前 + 性能パラメータ + 説明
+//   - W/2,  H-30           : 操作説明
+//   - 左上                  : 戻るボタン
+// ─────────────────────────────────────────────────────────
+function drawCharacterSelect() {
+  ctx.textAlign = 'center';
+  // タイトル
+  ctx.fillStyle = '#ffccdd';
+  ctx.font = 'bold 36px "Hiragino Mincho ProN", serif';
+  ctx.fillText('キャラクター選択', W / 2, 80);
+  ctx.font = '14px serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.fillText('～ Character Select ～', W / 2, 104);
+
+  // 3 アイコン
+  const iconY = 200;
+  const iconR = 50;
+  const startX = W / 2 - 200;
+  CHARACTERS.forEach((char, i) => {
+    const cx = startX + i * 200;
+    const selected = (i === characterMenuIndex);
+    // 選択中以外はアルファ 0.5、選択中は脈動付きの色付きリング
+    ctx.save();
+    if (!selected) ctx.globalAlpha = 0.5;
+    // 後ろ姿アイコン (画像)、未ロードならキャラ色の円
+    const sz = selected ? iconR * 2 : iconR * 1.7;
+    if (!drawImageCentered(char.backImage, cx, iconY, sz)) {
+      ctx.fillStyle = char.color;
+      ctx.beginPath();
+      ctx.arc(cx, iconY, sz / 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    if (selected) {
+      // 選択リング (脈動)
+      const pulse = (Math.sin(frame * 0.18) + 1) / 2;
+      ctx.strokeStyle = char.color;
+      ctx.lineWidth = 3;
+      ctx.shadowBlur = 14 + pulse * 12;
+      ctx.shadowColor = char.color;
+      ctx.beginPath();
+      ctx.arc(cx, iconY, iconR + 8, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      // ▶ ◀ マーカー
+      ctx.fillStyle = '#ffaa00';
+      ctx.font = 'bold 28px sans-serif';
+      ctx.fillText('▶', cx - iconR - 32, iconY + 10);
+      ctx.fillText('◀', cx + iconR + 32, iconY + 10);
+    }
+    ctx.restore();
+    // キャラ名 (アイコン下、選択中は色付き)
+    ctx.fillStyle = selected ? char.color : 'rgba(255,255,255,0.6)';
+    ctx.font = selected ? 'bold 18px "Hiragino Mincho ProN", serif' : '14px "Hiragino Mincho ProN", serif';
+    ctx.fillText(char.name, cx, iconY + iconR + 30);
+  });
+
+  // 選択中キャラの正面イラスト (中央、フェードイン)
+  const selChar = CHARACTERS[characterMenuIndex];
+  const fadeT = 1 - (characterAnimTimer / 10);
+  const portraitY = 420;
+  ctx.save();
+  ctx.globalAlpha = fadeT;
+  // 背景の薄いオーラ
+  const auraGrad = ctx.createRadialGradient(W / 2, portraitY, 40, W / 2, portraitY, 180);
+  auraGrad.addColorStop(0, hexToRgba(selChar.color, 0.30));
+  auraGrad.addColorStop(1, hexToRgba(selChar.color, 0));
+  ctx.fillStyle = auraGrad;
+  ctx.beginPath();
+  ctx.arc(W / 2, portraitY, 180, 0, Math.PI * 2);
+  ctx.fill();
+  // 正面イラスト本体 (キャンバス左半 480x700 に収まるサイズ)
+  if (!drawImageCentered(selChar.frontImage, W / 2, portraitY, 240)) {
+    ctx.fillStyle = selChar.color;
+    ctx.beginPath();
+    ctx.arc(W / 2, portraitY, 90, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // 名前 + 性能 + 説明 (画面下部)
+  const infoY = 580;
+  ctx.fillStyle = selChar.color;
+  ctx.font = 'bold 26px "Hiragino Mincho ProN", serif';
+  ctx.shadowBlur = 14;
+  ctx.shadowColor = selChar.color;
+  ctx.fillText(`${selChar.name} / ${selChar.enName}`, W / 2, infoY);
+  ctx.shadowBlur = 0;
+  // 説明 (jp)
+  ctx.fillStyle = '#fff';
+  ctx.font = '14px sans-serif';
+  ctx.fillText(selChar.description, W / 2, infoY + 22);
+  // 説明 (en)
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.font = '11px sans-serif';
+  ctx.fillText(selChar.enDescription, W / 2, infoY + 38);
+  // 性能パラメータ (1 行、12px monospace で 800px 内に収める)
+  ctx.fillStyle = 'rgba(255, 220, 180, 0.85)';
+  ctx.font = 'bold 12px monospace';
+  const homingTxt = selChar.homingEnabled ? `x${selChar.homingRate}` : 'なし';
+  const params = `速度: ${selChar.speed.toFixed(1)}   弾威力: x${selChar.bulletPower.toFixed(1)}   ホーミング: ${homingTxt}   ボム威力: x${selChar.bombPower.toFixed(1)}   ボム範囲: x${selChar.bombRange.toFixed(1)}`;
+  ctx.fillText(params, W / 2, infoY + 58);
+
+  // 操作説明 (画面最下部)
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.font = '11px sans-serif';
+  ctx.fillText('←→ で選択 / Z または Enter で決定 / Esc または X で戻る', W / 2, H - 14);
+
+  drawBackButton();
+}
+
+// '#cc88ff' → 'rgba(204, 136, 255, alpha)'
+function hexToRgba(hex, alpha) {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.substring(0, 2), 16);
+  const g = parseInt(h.substring(2, 4), 16);
+  const b = parseInt(h.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 function drawDifficulty() {
   ctx.textAlign = 'center';
   ctx.fillStyle = '#ffccdd';
@@ -245,7 +370,13 @@ function drawHUD() {
   ctx.fillStyle = 'rgba(255,255,255,0.5)';
   ctx.font = '12px sans-serif';
   ctx.fillText(`Stage ${selectedStage} - ${selectedDifficulty}`, x, y);
-  y += 30;
+  y += 16;
+  // 選択中キャラ (アイコン色 + 名前)
+  const _hudChar = getCharacter(selectedCharacter);
+  ctx.fillStyle = _hudChar.color;
+  ctx.font = 'bold 12px sans-serif';
+  ctx.fillText(`▸ ${_hudChar.name} / ${_hudChar.enName}`, x, y);
+  y += 14;
 
   ctx.fillStyle = '#aaffff';
   ctx.font = '14px sans-serif';
