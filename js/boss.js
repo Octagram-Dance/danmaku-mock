@@ -602,12 +602,13 @@ function shoot_s5_2(boss, t, speedMul, bulletMul) {
       vy: Math.sin(a) * 1.5 * speedMul,
       r: 6, color: '#ccddff',
       _splitTimer: 50,
-      _splitFn: (parent) => {
+      _splitFn: (parent, pending) => {
         // 親の進行方向を基準に ±90° と ±180° の 4 子弾を生成
+        // 子弾は pending に push (filter 中の enemyBullets 直接 push は最後の代入で消滅するため)
         const baseA = Math.atan2(parent.vy, parent.vx);
         for (let k = 0; k < 4; k++) {
           const angle = baseA + Math.PI / 2 + k * Math.PI / 2;
-          enemyBullets.push({
+          pending.push({
             x: parent.x, y: parent.y,
             vx: Math.cos(angle) * childSpeed,
             vy: Math.sin(angle) * childSpeed,
@@ -1359,7 +1360,12 @@ function drawEnduranceOverlay() {
 
   const sec = Math.max(0, Math.ceil(boss.spellTimer / 60));
   const cx = PX + PW / 2;
-  const cy = PY + 60;
+  // パネルを上端寄り・小型化 (旧 78×360 → 42×220) してボスの視認性を確保。
+  // boss は通常 PY+60〜PY+180 を漂うので、PY+30〜PY+72 に収めればほぼ重ならない。
+  const top = PY + 30;
+  const panelW = 220;
+  const panelH = 42;
+  const left = cx - panelW / 2;
 
   // 色階調 (>30s 白寄り、>10s 黄、<=10s 赤)
   let color, glow;
@@ -1367,51 +1373,45 @@ function drawEnduranceOverlay() {
   else if (sec > 10) { color = '#ffcc44'; glow = '#ff8844'; }
   else               { color = '#ff5566'; glow = '#ff2244'; }
   // 残り 10 秒以下は脈動 (1秒周期)
-  const pulse = sec <= 10 ? 1 + 0.18 * Math.sin(frame * 0.5) : 1;
+  const pulse = sec <= 10 ? 1 + 0.14 * Math.sin(frame * 0.5) : 1;
 
   ctx.save();
-  // 背景パネル (左右余白あり、半透明黒)
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
-  ctx.fillRect(PX + 60, cy - 22, PW - 120, 78);
+  // 背景パネル (半透明黒)
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+  ctx.fillRect(left, top, panelW, panelH);
   // 上下細枠
-  ctx.strokeStyle = `rgba(${sec <= 10 ? '255, 80, 100' : '255, 220, 120'}, 0.8)`;
-  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = `rgba(${sec <= 10 ? '255, 80, 100' : '255, 220, 120'}, 0.7)`;
+  ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(PX + 60, cy - 22); ctx.lineTo(PX + PW - 60, cy - 22);
-  ctx.moveTo(PX + 60, cy + 56); ctx.lineTo(PX + PW - 60, cy + 56);
+  ctx.moveTo(left, top); ctx.lineTo(left + panelW, top);
+  ctx.moveTo(left, top + panelH); ctx.lineTo(left + panelW, top + panelH);
   ctx.stroke();
 
   // 上段ラベル
   ctx.textAlign = 'center';
-  ctx.font = 'bold 12px sans-serif';
+  ctx.font = 'bold 10px sans-serif';
   ctx.fillStyle = 'rgba(255, 220, 160, 0.9)';
-  ctx.shadowBlur = 6;
+  ctx.shadowBlur = 5;
   ctx.shadowColor = '#ffaa44';
-  ctx.fillText('— ENDURANCE / 耐久 —', cx, cy - 6);
+  ctx.fillText('— ENDURANCE / 耐久 —', cx, top + 12);
 
-  // 大きな秒数
-  ctx.font = `bold ${44 * pulse}px monospace`;
+  // 秒数 (中央)
+  ctx.font = `bold ${24 * pulse}px monospace`;
   ctx.fillStyle = color;
-  ctx.shadowBlur = 18;
+  ctx.shadowBlur = 12;
   ctx.shadowColor = glow;
-  ctx.fillText(`${sec}`, cx, cy + 32);
+  ctx.fillText(`${sec} s`, cx, top + 33);
   ctx.shadowBlur = 0;
 
-  // サブテキスト (sec の右に "s")
-  ctx.font = 'bold 18px monospace';
-  ctx.fillStyle = `rgba(255, 255, 255, 0.7)`;
-  ctx.textAlign = 'left';
-  ctx.fillText('s', cx + Math.max(28, ctx.measureText(`${sec}`).width / 2 + 6), cy + 32);
-
-  // 進捗バー (パネル下端に幅広で、残り時間で減る)
-  const barW = PW - 140;
-  const barX = PX + 70;
-  const barY = cy + 44;
+  // 進捗バー (パネル下端、細め)
+  const barW = panelW - 16;
+  const barX = left + 8;
+  const barY = top + panelH - 4;
   const tRatio = Math.max(0, boss.spellTimer) / boss.spellTimeLimit;
   ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
-  ctx.fillRect(barX, barY, barW, 4);
+  ctx.fillRect(barX, barY, barW, 2);
   ctx.fillStyle = color;
-  ctx.fillRect(barX, barY, barW * tRatio, 4);
+  ctx.fillRect(barX, barY, barW * tRatio, 2);
 
   ctx.restore();
 }
