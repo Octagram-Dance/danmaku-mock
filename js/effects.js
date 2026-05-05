@@ -40,7 +40,9 @@ function useBomb() {
     e.hp -= 4;
     if (e.hp <= 0) killEnemy(e);
   });
-  if (boss && boss.spellAnnounceTimer <= 0 && boss.invulnAfterSpell <= 0) {
+  // 耐久スペル中はボムダメージも通らない
+  if (boss && boss.spellAnnounceTimer <= 0 && boss.invulnAfterSpell <= 0
+      && !(boss.spellCards[boss.pattern] && boss.spellCards[boss.pattern].invulnerable)) {
     boss.hp -= 80;
   }
   // 中ボスにもボムダメージ (入場中は無敵)
@@ -66,8 +68,9 @@ function updateBomb() {
       });
       enemyBullets = [];
     }
-    // ボム中も少しずつボスにダメージ
-    if (boss && bombTimer % 10 === 0 && boss.spellAnnounceTimer <= 0 && boss.invulnAfterSpell <= 0) {
+    // ボム中も少しずつボスにダメージ (耐久スペル中は無効)
+    if (boss && bombTimer % 10 === 0 && boss.spellAnnounceTimer <= 0 && boss.invulnAfterSpell <= 0
+        && !(boss.spellCards[boss.pattern] && boss.spellCards[boss.pattern].invulnerable)) {
       boss.hp -= 5;
     }
     if (midBossActive && midBoss && !midBoss.entering && bombTimer % 10 === 0) {

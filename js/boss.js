@@ -843,7 +843,8 @@ const SPELL_CARDS_BY_STAGE = {
     { name: '神星「コスミック・コラプス」',     color: '#ff44ff', hp: 0.12, shoot: shoot_s5_6 },
     { name: '時空「歪んだ宇宙」',              color: '#88ffff', hp: 0.10, shoot: shoot_s5_7 },
     { name: '終焉「ヘリオパウズ」',            color: '#ffaa44', hp: 0.10, shoot: shoot_s5_8 },
-    { name: 'ラスト「宇宙の終わり」',           color: '#ffffff', hp: 0.10, shoot: shoot_s5_9 }
+    // 耐久スペル: ボス無敵、60 秒生き延びると撃破トリガー (startFinalBossDeath)
+    { name: 'ラスト「宇宙の終わり」',           color: '#ffffff', hp: 0.10, shoot: shoot_s5_9, invulnerable: true }
   ]
 };
 
@@ -982,7 +983,31 @@ function updateBoss() {
   boss.patternTimer++;
   if (boss.spellAnnounceTimer > 0) boss.spellAnnounceTimer--;
   if (boss.invulnAfterSpell > 0) boss.invulnAfterSpell--;
-  boss.spellTimer--;
+  // 耐久スペルではスペル開始演出中タイマーを止める (60 秒のうち 1.5 秒が削れるのを防ぐ)
+  // 通常スペルでは既存挙動を維持 (常時 -1)
+  const _curCard = boss.spellCards[boss.pattern];
+  if (_curCard && _curCard.invulnerable) {
+    if (boss.spellAnnounceTimer <= 0) boss.spellTimer--;
+  } else {
+    boss.spellTimer--;
+  }
+
+  // 耐久スペル: タイマー満了 = 撃破トリガー (ステージ5 ラスト想定)
+  if (_curCard && _curCard.invulnerable && boss.spellTimer <= 0
+      && boss.pattern >= boss.spellCards.length - 1) {
+    if (selectedStage === 5) {
+      // 撃破ボーナスはここで加算 (通常ルートと同じ加点)
+      score += 100000;
+      spawnScoreText(boss.x, boss.y, '+100000', '#ffcc44');
+      saveHiScore(selectedDifficulty, score);
+      saveGrazeRecord(selectedDifficulty, grazeCount);
+      startFinalBossDeath();
+    } else {
+      // 汎用フォールバック: HP を 0 にして次フレームの bullet handler で撃破処理
+      boss.hp = 0;
+    }
+    return;
+  }
 
   // 通常移動 (ステージ別 cycle/lerp)
   boss.moveTimer--;
@@ -1270,14 +1295,28 @@ function drawBossHpBar() {
   if (state === 'finalBossDeath') return;
   const w = PW - 40;
   const card = boss.spellCards[boss.pattern];
-  // 現スペルカードのHP範囲内での残量
-  const cardHpRange = boss.patternHpStart - boss.patternHpMin;
-  const cardHpRemain = Math.max(0, boss.hp - boss.patternHpMin);
-  const ratio = cardHpRange > 0 ? cardHpRemain / cardHpRange : 0;
-  ctx.fillStyle = 'rgba(0,0,0,0.6)';
-  ctx.fillRect(PX + 20, PY + 4, w, 6);
-  ctx.fillStyle = card.color;
-  ctx.fillRect(PX + 20, PY + 4, w * ratio, 6);
+  // 耐久スペル中は HP バー (=0% で固定) を出さず、スペル名だけを赤金で表示
+  const endurance = !!card.invulnerable;
+  if (!endurance) {
+    // 現スペルカードのHP範囲内での残量
+    const cardHpRange = boss.patternHpStart - boss.patternHpMin;
+    const cardHpRemain = Math.max(0, boss.hp - boss.patternHpMin);
+    const ratio = cardHpRange > 0 ? cardHpRemain / cardHpRange : 0;
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(PX + 20, PY + 4, w, 6);
+    ctx.fillStyle = card.color;
+    ctx.fillRect(PX + 20, PY + 4, w * ratio, 6);
+  } else {
+    // 耐久スペル: HP バー領域は時間バーに転用 (full → empty で残り時間を示す)
+    const tRatio = Math.max(0, boss.spellTimer) / boss.spellTimeLimit;
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(PX + 20, PY + 4, w, 6);
+    // 残時間に応じて色を変える (>30s 白、>10s 黄、それ以下 赤)
+    const sec = Math.ceil(boss.spellTimer / 60);
+    const barColor = sec > 30 ? '#ddccff' : (sec > 10 ? '#ffcc44' : '#ff4444');
+    ctx.fillStyle = barColor;
+    ctx.fillRect(PX + 20, PY + 4, w * tRatio, 6);
+  }
   // 残スペル数の星
   for (let i = 0; i < boss.spellCards.length; i++) {
     const sx = PX + 20 + i * 14;
@@ -1286,19 +1325,95 @@ function drawBossHpBar() {
     ctx.arc(sx, PY + 16, 3, 0, Math.PI*2);
     ctx.fill();
   }
-  // スペルカード名 (右上)
-  ctx.fillStyle = '#fff';
+  // スペルカード名 (右上、耐久時は赤金強調)
+  ctx.fillStyle = endurance ? '#ffcc44' : '#fff';
   ctx.font = 'bold 13px "Hiragino Mincho ProN", serif';
   ctx.textAlign = 'right';
+  if (endurance) {
+    ctx.shadowBlur = 8;
+    ctx.shadowColor = '#ff4422';
+  }
   ctx.fillText(card.name, PX + PW - 8, PY + 18);
+  ctx.shadowBlur = 0;
   // 残時間
-  if (boss.spellAnnounceTimer <= 0) {
+  if (!endurance && boss.spellAnnounceTimer <= 0) {
     const sec = Math.ceil(boss.spellTimer / 60);
     ctx.font = 'bold 11px monospace';
     ctx.fillStyle = sec <= 10 ? '#ff4444' : '#ffcc44';
     ctx.textAlign = 'left';
     ctx.fillText(`${sec}`, PX + 20, PY + 26);
   }
+}
+
+// ─────────────────────────────────────────────────────────
+// 耐久スペル時の大きなカウントダウン表示
+// 上部中央に「ENDURANCE」ラベル + 大きな秒数 + 進捗ドット。
+// 残り 30 秒で黄、10 秒以下で赤+脈動して可視性を最大化。
+// ─────────────────────────────────────────────────────────
+function drawEnduranceOverlay() {
+  if (!boss) return;
+  if (state === 'finalBossDeath' || state === 'phase2Intro') return;
+  const card = boss.spellCards[boss.pattern];
+  if (!card || !card.invulnerable) return;
+  if (boss.spellAnnounceTimer > 0) return;
+
+  const sec = Math.max(0, Math.ceil(boss.spellTimer / 60));
+  const cx = PX + PW / 2;
+  const cy = PY + 60;
+
+  // 色階調 (>30s 白寄り、>10s 黄、<=10s 赤)
+  let color, glow;
+  if (sec > 30)      { color = '#ffffff'; glow = '#aaccff'; }
+  else if (sec > 10) { color = '#ffcc44'; glow = '#ff8844'; }
+  else               { color = '#ff5566'; glow = '#ff2244'; }
+  // 残り 10 秒以下は脈動 (1秒周期)
+  const pulse = sec <= 10 ? 1 + 0.18 * Math.sin(frame * 0.5) : 1;
+
+  ctx.save();
+  // 背景パネル (左右余白あり、半透明黒)
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+  ctx.fillRect(PX + 60, cy - 22, PW - 120, 78);
+  // 上下細枠
+  ctx.strokeStyle = `rgba(${sec <= 10 ? '255, 80, 100' : '255, 220, 120'}, 0.8)`;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(PX + 60, cy - 22); ctx.lineTo(PX + PW - 60, cy - 22);
+  ctx.moveTo(PX + 60, cy + 56); ctx.lineTo(PX + PW - 60, cy + 56);
+  ctx.stroke();
+
+  // 上段ラベル
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 12px sans-serif';
+  ctx.fillStyle = 'rgba(255, 220, 160, 0.9)';
+  ctx.shadowBlur = 6;
+  ctx.shadowColor = '#ffaa44';
+  ctx.fillText('— ENDURANCE / 耐久 —', cx, cy - 6);
+
+  // 大きな秒数
+  ctx.font = `bold ${44 * pulse}px monospace`;
+  ctx.fillStyle = color;
+  ctx.shadowBlur = 18;
+  ctx.shadowColor = glow;
+  ctx.fillText(`${sec}`, cx, cy + 32);
+  ctx.shadowBlur = 0;
+
+  // サブテキスト (sec の右に "s")
+  ctx.font = 'bold 18px monospace';
+  ctx.fillStyle = `rgba(255, 255, 255, 0.7)`;
+  ctx.textAlign = 'left';
+  ctx.fillText('s', cx + Math.max(28, ctx.measureText(`${sec}`).width / 2 + 6), cy + 32);
+
+  // 進捗バー (パネル下端に幅広で、残り時間で減る)
+  const barW = PW - 140;
+  const barX = PX + 70;
+  const barY = cy + 44;
+  const tRatio = Math.max(0, boss.spellTimer) / boss.spellTimeLimit;
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+  ctx.fillRect(barX, barY, barW, 4);
+  ctx.fillStyle = color;
+  ctx.fillRect(barX, barY, barW * tRatio, 4);
+
+  ctx.restore();
 }
 
 // 詠唱マナ円: ボスの周りに魔法陣が回転しながら広がる

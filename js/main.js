@@ -609,6 +609,7 @@ function drawGame() {
 
   drawMidBossHpBar();
   drawBossHpBar();
+  drawEnduranceOverlay();
   drawSpellAnnounce();
   drawSlowModeLabel();
   drawMobileBombButton();

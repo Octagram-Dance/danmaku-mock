@@ -49,6 +49,8 @@ function checkPlayerBulletHits() {
       if (b._consumed) return;
       // ボスはスペル開始演出中・スペル切替直後は無敵
       if (e === boss && (boss.spellAnnounceTimer > 0 || boss.invulnAfterSpell > 0)) return;
+      // 耐久スペル中はボス無敵: 弾は素通り (spellAnnounce/invulnAfterSpell と同じ挙動)
+      if (e === boss && boss.spellCards[boss.pattern] && boss.spellCards[boss.pattern].invulnerable) return;
       // 中ボスは入場中は無敵 (スライドダウン中)
       if (e === midBoss && midBoss.entering) return;
       if (Math.hypot(b.x - e.x, b.y - e.y) < e.r + b.r) {
