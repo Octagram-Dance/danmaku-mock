@@ -405,6 +405,10 @@ const SPELL_CARDS_BY_STAGE = {
     { name: '神風「天狗の旋風」',        color: '#ffcc66', hp: 0.24, shoot: shoot_s3_4 }
   ]
 };
+// ステージ 4, 5 のプレースホルダ (デバッグや保険用)
+// 本実装が来るまではステージ 3 のスペルカードを流用、デバッグ的にプレイは可能。
+SPELL_CARDS_BY_STAGE[4] = SPELL_CARDS_BY_STAGE[3];
+SPELL_CARDS_BY_STAGE[5] = SPELL_CARDS_BY_STAGE[3];
 
 // 後方互換: 旧 SPELL_CARDS への参照は SPELL_CARDS_BY_STAGE[1] を指す。
 // 新規コードは可能なら boss.spellCards を使うこと。
@@ -412,9 +416,11 @@ const SPELL_CARDS = SPELL_CARDS_BY_STAGE[1];
 
 // ボス名 (ステージ別、ja+en)
 const BOSS_NAMES = {
-  1: { ja: '紫雨',   en: 'Lady of the Violet Veil' },
-  2: { ja: '雪舞',   en: 'Maiden of the Winter Frost' },
-  3: { ja: '紅葉姫', en: 'Princess of Autumn Leaves' }
+  1: { ja: '紫雨',     en: 'Lady of the Violet Veil' },
+  2: { ja: '雪舞',     en: 'Maiden of the Winter Frost' },
+  3: { ja: '紅葉姫',   en: 'Princess of Autumn Leaves' },
+  4: { ja: '（準備中）', en: 'Coming Soon' },
+  5: { ja: '（準備中）', en: 'Coming Soon' }
 };
 
 // 移動パターン (ステージ別の動き方)
@@ -426,6 +432,9 @@ const BOSS_MOVE_BY_STAGE = {
   2: { cycle: 180, lerp: 0.015, teleportInterval: 0   }, // 氷: 浮遊・ゆったり
   3: { cycle: 60,  lerp: 0.05,  teleportInterval: 0   }  // 紅葉: 高速・広範囲
 };
+// ステージ 4, 5 のプレースホルダ (本実装まではステージ 3 と同じ動き)
+BOSS_MOVE_BY_STAGE[4] = BOSS_MOVE_BY_STAGE[3];
+BOSS_MOVE_BY_STAGE[5] = BOSS_MOVE_BY_STAGE[3];
 
 // ─────────────────────────────────────────────────────────
 // ボス出現カットインを開始: state='bossIntro' に遷移し、画面の弾をフェードアウトに切替。

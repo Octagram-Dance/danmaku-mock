@@ -81,6 +81,9 @@ const MID_BOSS_BY_STAGE = {
   2: { name: '雪魔',     spellName: '雪魔「凍りつく嘲笑」', color: '#88ddff', shoot: midShoot_s2 },
   3: { name: '九尾狐',   spellName: '狐火「九尾の幻惑」',   color: '#ffaa44', shoot: midShoot_s3 }
 };
+// ステージ 4, 5 のプレースホルダ (本実装まではステージ 3 の中ボスを流用)
+MID_BOSS_BY_STAGE[4] = MID_BOSS_BY_STAGE[3];
+MID_BOSS_BY_STAGE[5] = MID_BOSS_BY_STAGE[3];
 
 // state='midBossIntro' に遷移し、90F の出現演出後に通常戦闘へ。
 // 中ボス本体はこの瞬間に上画面外に生成され、state='play' 復帰後にスライドダウンする。

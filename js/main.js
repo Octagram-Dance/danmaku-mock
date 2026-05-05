@@ -69,6 +69,11 @@ const DIFF_BULLET = { Easy: 0.5, Normal: 0.75, Hard: 1.2 };  // 弾数倍率
 const DIFF_SPEED  = { Easy: 0.75, Normal: 0.85, Hard: 1.0 }; // 弾速倍率
 const DIFF_HP     = { Easy: 0.6, Normal: 1.0, Hard: 1.5 };   // ボスHP倍率
 
+// ステージ数の枠 (MAX) と現在実装済みのステージ数 (IMPLEMENTED)。
+// 4-5 を実装したら IMPLEMENTED_STAGES を増やすだけで全クリア地点も自動更新される。
+const MAX_STAGES = 5;
+const IMPLEMENTED_STAGES = 3;
+
 function startGame(stage, fromBossOnly) {
   selectedStage = stage;
   bossOnlyMode = !!fromBossOnly;
@@ -179,6 +184,8 @@ function selectMenu() {
     } else if (menuIndex === 1) { state = 'stageSelect'; menuIndex = 0; bossOnlyMode = false; }
     else if (menuIndex === 2) { state = 'stageSelect'; menuIndex = 0; bossOnlyMode = true; }
   } else if (state === 'stageSelect') {
+    // 未実装ステージ (4, 5 など) は選択不可: 黙って何もしない
+    if (menuIndex >= IMPLEMENTED_STAGES) return;
     selectedStage = menuIndex + 1;
     state = 'difficulty';
     menuIndex = 1;
@@ -198,7 +205,7 @@ function goBackFromMenu() {
   } else if (state === 'difficulty') {
     if (cameViaStageSelect) {
       state = 'stageSelect';
-      menuIndex = Math.max(0, Math.min(2, selectedStage - 1)); // ステージ番号 → menuIndex
+      menuIndex = Math.max(0, Math.min(MAX_STAGES - 1, selectedStage - 1)); // ステージ番号 → menuIndex
     } else {
       state = 'title';
       menuIndex = 0; // "はじめから遊ぶ" にカーソル復帰
@@ -220,10 +227,20 @@ function handleClick(p) {
       goBackFromMenu();
       return;
     }
-    for (let i = 0; i < 3; i++) {
-      const y = 280 + i * 70;
-      if (p.y > y - 30 && p.y < y + 30 && p.x > 200 && p.x < 600) {
-        menuIndex = i; selectMenu(); return;
+    if (state === 'stageSelect') {
+      // ステージ選択は MAX_STAGES 項目 (未実装は selectMenu 側でガード)
+      for (let i = 0; i < MAX_STAGES; i++) {
+        const y = 220 + i * 55;
+        if (p.y > y - 27 && p.y < y + 27 && p.x > 200 && p.x < 600) {
+          menuIndex = i; selectMenu(); return;
+        }
+      }
+    } else { // difficulty: 3 項目固定
+      for (let i = 0; i < 3; i++) {
+        const y = 280 + i * 70;
+        if (p.y > y - 30 && p.y < y + 30 && p.x > 200 && p.x < 600) {
+          menuIndex = i; selectMenu(); return;
+        }
       }
     }
   } else if (state === 'gameOver' || state === 'allClear') {
@@ -231,7 +248,7 @@ function handleClick(p) {
   } else if (state === 'clear') {
     if (bossOnlyMode) {
       state = 'title'; menuIndex = 0;
-    } else if (selectedStage < 3) {
+    } else if (selectedStage < IMPLEMENTED_STAGES) {
       startStageTransition();
     } else {
       state = 'allClear';
@@ -301,7 +318,9 @@ function update() {
   if (state === 'title' || state === 'stageSelect' || state === 'difficulty') {
     if (justPressed['ArrowUp']) menuIndex--;
     if (justPressed['ArrowDown']) menuIndex++;
-    menuIndex = (menuIndex + 3) % 3;
+    // 項目数は state ごと: stageSelect は MAX_STAGES、それ以外は 3
+    const itemCount = state === 'stageSelect' ? MAX_STAGES : 3;
+    menuIndex = (menuIndex + itemCount) % itemCount;
     if (justPressed['z'] || justPressed['Z'] || justPressed['Enter'] || justPressed[' ']) selectMenu();
     // Esc / X で 1つ前に戻る (title はルートなので除外)
     if ((justPressed['Escape'] || justPressed['x'] || justPressed['X']) && state !== 'title') {
@@ -329,11 +348,11 @@ function update() {
       // ボスのみモードならタイトルへ
       if (bossOnlyMode) {
         state = 'title'; menuIndex = 0;
-      } else if (selectedStage < 3) {
+      } else if (selectedStage < IMPLEMENTED_STAGES) {
         // 次ステージへ遷移演出を挟む (スコア・残機・パワー・ボムは nextStage で引き継ぎ)
         startStageTransition();
       } else {
-        // 3クリア = 全クリア
+        // 最終実装ステージクリア = 全クリア
         state = 'allClear';
         saveHiScore(selectedDifficulty, score);
         saveGrazeRecord(selectedDifficulty, grazeCount);
