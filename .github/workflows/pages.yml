@@ -1,0 +1,57 @@
+# GitHub Pages デプロイ (静的サイト、Actions ベース)
+#
+# 旧設定 (build_type: legacy = "Deploy from a branch") の自動 pages-build-deployment が
+# 2026-05 から legacy runner を acquire できずタイムアウト・キャンセルを繰り返したため、
+# 公式の現行方式である GitHub Actions ベースのデプロイに移行。
+#
+# トリガ:
+#   - main への push (PR マージ含む)
+#   - workflow_dispatch (Actions タブから手動実行)
+#
+# ロールバック (legacy "Deploy from a branch" に戻す):
+#   gh api -X PUT /repos/Octagram-Dance/danmaku-mock/pages -f build_type=legacy
+#   または Settings → Pages → Build and deployment → Source を "Deploy from a branch" に戻す
+#   その後この pages.yml を削除すれば旧構成に戻る。
+
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# GITHUB_TOKEN に Pages デプロイに必要な最小権限を付与
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同時実行は 1 本に制限。進行中のデプロイはキャンセルしない
+# (Pages のデプロイは数分以内に終わるので、後続を待たせる方が安全)。
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # リポジトリ全体をアップロード (.git は自動で除外される)。
+          # 静的サイトなのでビルド工程はなし。
+          path: '.'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
