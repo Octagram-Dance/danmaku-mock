@@ -137,16 +137,20 @@ function drawStageSelect() {
   ctx.textAlign = 'center';
   ctx.fillStyle = '#ffccdd';
   ctx.font = 'bold 48px "Hiragino Mincho ProN", serif';
-  ctx.fillText(bossOnlyMode ? 'ボス選択' : 'ステージ選択', W/2, 180);
+  ctx.fillText(bossOnlyMode ? 'ボス選択' : 'ステージ選択', W/2, 150);
   ctx.font = '28px serif';
-  for (let i = 0; i < 3; i++) {
-    const y = 280 + i * 70;
-    const label = bossOnlyMode ? `ステージ ${i+1} ボス` : `ステージ ${i+1}`;
+  // MAX_STAGES 個の項目を描画 (i >= IMPLEMENTED_STAGES は灰色 + (準備中) 表示で選択不可)
+  for (let i = 0; i < MAX_STAGES; i++) {
+    const y = 220 + i * 55;
+    const baseLabel = bossOnlyMode ? `ステージ ${i+1} ボス` : `ステージ ${i+1}`;
+    const isAvailable = i < IMPLEMENTED_STAGES;
+    const label = isAvailable ? baseLabel : `${baseLabel}(準備中)`;
     if (i === menuIndex) {
-      ctx.fillStyle = '#ffaa00';
+      // カーソル中: 利用可能なら橙、未実装なら灰色 (選択しても遷移しない)
+      ctx.fillStyle = isAvailable ? '#ffaa00' : 'rgba(170, 170, 170, 0.75)';
       ctx.fillText('▶ ' + label + ' ◀', W/2, y);
     } else {
-      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      ctx.fillStyle = isAvailable ? 'rgba(255,255,255,0.7)' : 'rgba(140, 140, 140, 0.5)';
       ctx.fillText(label, W/2, y);
     }
   }
@@ -634,7 +638,7 @@ function drawClearSummary() {
       if (blinkOn) {
         ctx.fillStyle = 'rgba(255,255,255,0.75)';
         ctx.font = '14px sans-serif';
-        const promptText = (selectedStage < 3 && !bossOnlyMode)
+        const promptText = (selectedStage < IMPLEMENTED_STAGES && !bossOnlyMode)
           ? 'Z または Enter で次のステージへ'
           : 'Z または Enter で進む';
         ctx.fillText(promptText, PX + PW/2, totalY + 44);

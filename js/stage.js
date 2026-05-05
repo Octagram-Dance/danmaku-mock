@@ -217,5 +217,5 @@ function drawBgStage3() {
 function drawStageBackground(stage) {
   if (stage === 1) drawBgStage1();
   else if (stage === 2) drawBgStage2();
-  else if (stage === 3) drawBgStage3();
+  else drawBgStage3(); // 4, 5 等の未実装ステージはステージ 3 背景にフォールバック
 }
