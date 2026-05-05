@@ -161,14 +161,13 @@ window.addEventListener('mouseup', e => {
   touchActive = false;
 });
 
-// click は menu 用 (title / stageSelect / difficulty 等)。
-// state='play' で mousedown→mouseup の単発クリックの場合、touchActive が立った後に
-// mouseup で false に戻るのでドラッグ自体は無害。click は handleClick に流れるが、
-// handleClick は 'play' を扱わないので何もしない。
-canvas.addEventListener('click', e => {
-  const p = getCanvasPos(e.clientX, e.clientY);
-  if (state !== 'play') handleClick(p);
-});
+// 注: 過去には canvas に独立した 'click' リスナーも登録していたが、
+// mousedown→mouseup→click の流れで handleClick が同じ座標で 2 回呼ばれ、
+// 1 回目で title→characterSelect に遷移した直後に 2 回目が
+// characterSelect の portrait 当たり判定 (中心 y=420, 半径 140) を踏んで
+// 即 difficulty に飛ぶ多重発火バグを起こしていた。mousedown 経由の
+// handlePointerDown→handleClick だけで desktop/mobile 共にカバーできるため
+// click リスナーは廃止 (touch-action:none で synthetic click も発火しない)。
 
 function isSlowMode() {
   return keys['Shift'] || touchSlowMode;

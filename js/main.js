@@ -342,6 +342,12 @@ function startStageTransition() {
   transitionTimer = 150;   // 30フェードイン + 90タイトル + 30フェードアウト = 2.5s
 }
 
+// 全 justPressed を一括クリア。
+// State を遷移させた直後に呼んで「同フレーム内多重発火」を物理的に防ぐ。
+function clearJustPressed() {
+  for (const k in justPressed) justPressed[k] = false;
+}
+
 function update() {
   frame++;
   // グレイズ時の HUD フラッシュ用 (visual-only、state に関係なく毎F減衰)
@@ -352,7 +358,7 @@ function update() {
     if (justPressed['p'] || justPressed['P'] || justPressed['Escape']) {
       state = 'paused';
       pauseMenuIndex = 0;
-      for (const k in justPressed) justPressed[k] = false;
+      clearJustPressed();
       return;
     }
     // ヒットストップ中: ゲームロジックは止めるが、視覚演出は継続
@@ -362,7 +368,7 @@ function update() {
       updateParticles();
       updateFloatTexts();
       if (bombFlash > 0) bombFlash--;
-      for (const k in justPressed) justPressed[k] = false;
+      clearJustPressed();
       return;
     }
     updatePlayer();
@@ -391,20 +397,29 @@ function update() {
     updateFloatTexts();
   }
 
-  // メニュー系ステートは else if チェーンで mutually exclusive にする。
-  // (justPressed は update() 末尾で一括クリアされるので、独立した if だと
-  //  selectMenu() が state を遷移させた直後に次ブロックが同じキーを再消費して
-  //  characterSelect が即座にスキップされる。)
+  // ── メニュー系ステートのキー入力 ──
+  // 設計原則: state を遷移させたら即 justPressed を全クリアして return する。
+  //
+  // 過去のバグ:
+  //   PR #20 以前は title→characterSelect→difficulty が同フレーム内で連鎖していた。
+  //   PR #20 で `else if` 化したが、独立 if が他に残っていたため環境差で
+  //   思わぬ多重発火が発生。今回からは「state を変えたら即 clearJustPressed + return」を
+  //   全メニューハンドラで徹底し、フレーム内での 2 段遷移を構造的に不可能にする。
   if (state === 'title' || state === 'stageSelect' || state === 'difficulty') {
     if (justPressed['ArrowUp']) menuIndex--;
     if (justPressed['ArrowDown']) menuIndex++;
-    // 項目数は state ごと: stageSelect は MAX_STAGES、それ以外は 3
     const itemCount = state === 'stageSelect' ? MAX_STAGES : 3;
     menuIndex = (menuIndex + itemCount) % itemCount;
-    if (justPressed['z'] || justPressed['Z'] || justPressed['Enter'] || justPressed[' ']) selectMenu();
-    // Esc / X で 1つ前に戻る (title はルートなので除外)
+    if (justPressed['z'] || justPressed['Z'] || justPressed['Enter'] || justPressed[' ']) {
+      selectMenu();
+      clearJustPressed();
+      return;
+    }
+    // Esc / X で 1 つ前に戻る (title はルートなので除外)
     if ((justPressed['Escape'] || justPressed['x'] || justPressed['X']) && state !== 'title') {
       goBackFromMenu();
+      clearJustPressed();
+      return;
     }
   } else if (state === 'characterSelect') {
     // ←→ で選択切り替え (上下も受け付ける = 既存メニューの感覚に合わせる)
@@ -416,39 +431,51 @@ function update() {
       characterAnimTimer = 10;
     }
     if (characterAnimTimer > 0) characterAnimTimer--;
-    if (justPressed['z'] || justPressed['Z'] || justPressed['Enter'] || justPressed[' ']) selectMenu();
-    if (justPressed['Escape'] || justPressed['x'] || justPressed['X']) goBackFromMenu();
-  }
-  if (state === 'paused') {
+    if (justPressed['z'] || justPressed['Z'] || justPressed['Enter'] || justPressed[' ']) {
+      selectMenu();
+      clearJustPressed();
+      return;
+    }
+    if (justPressed['Escape'] || justPressed['x'] || justPressed['X']) {
+      goBackFromMenu();
+      clearJustPressed();
+      return;
+    }
+  } else if (state === 'paused') {
     if (justPressed['ArrowUp']) pauseMenuIndex--;
     if (justPressed['ArrowDown']) pauseMenuIndex++;
     pauseMenuIndex = (pauseMenuIndex + 2) % 2;
     if (justPressed['p'] || justPressed['P'] || justPressed['Escape']) {
-      state = 'play'; // ポーズキー再押下で再開
-    } else if (justPressed['z'] || justPressed['Z'] || justPressed['Enter']) {
+      state = 'play';
+      clearJustPressed();
+      return;
+    }
+    if (justPressed['z'] || justPressed['Z'] || justPressed['Enter']) {
       if (pauseMenuIndex === 0) state = 'play';
       else { state = 'title'; menuIndex = 0; }
+      clearJustPressed();
+      return;
     }
-  }
-  if (state === 'gameOver' || state === 'allClear') {
+  } else if (state === 'gameOver' || state === 'allClear') {
     if (justPressed['z'] || justPressed['Z'] || justPressed['Enter']) {
       state = 'title'; menuIndex = 0;
+      clearJustPressed();
+      return;
     }
-  }
-  if (state === 'clear') {
+  } else if (state === 'clear') {
     if (justPressed['z'] || justPressed['Z'] || justPressed['Enter']) {
       // ボスのみモードならタイトルへ
       if (bossOnlyMode) {
         state = 'title'; menuIndex = 0;
       } else if (selectedStage < IMPLEMENTED_STAGES) {
-        // 次ステージへ遷移演出を挟む (スコア・残機・パワー・ボムは nextStage で引き継ぎ)
         startStageTransition();
       } else {
-        // 最終実装ステージクリア = 全クリア
         state = 'allClear';
         saveHiScore(selectedDifficulty, score);
         saveGrazeRecord(selectedDifficulty, grazeCount);
       }
+      clearJustPressed();
+      return;
     }
   }
   if (state === 'transition') {
@@ -546,7 +573,7 @@ function update() {
     // タイマー満了で startBossIntro() (state='bossIntro' は 240F 化される) へ。
     if (justPressed['p'] || justPressed['P'] || justPressed['Escape']) {
       state = 'paused'; pauseMenuIndex = 0;
-      for (const k in justPressed) justPressed[k] = false;
+      clearJustPressed();
       return;
     }
     finalStageIntroTimer--;
@@ -592,7 +619,7 @@ function update() {
       if (finalBossDeathTimer <= 0) {
         state = 'allClear';
       }
-      for (const k in justPressed) justPressed[k] = false;
+      clearJustPressed();
       return;
     }
     finalBossDeathTimer--;
@@ -608,7 +635,7 @@ function update() {
   if (state === 'clear') {
     summaryTimer++;
   }
-  for (const k in justPressed) justPressed[k] = false;
+  clearJustPressed();
 }
 
 function draw() {
