@@ -70,9 +70,9 @@ const DIFF_SPEED  = { Easy: 0.75, Normal: 0.85, Hard: 1.0 }; // 弾速倍率
 const DIFF_HP     = { Easy: 0.6, Normal: 1.0, Hard: 1.5 };   // ボスHP倍率
 
 // ステージ数の枠 (MAX) と現在実装済みのステージ数 (IMPLEMENTED)。
-// 4-5 を実装したら IMPLEMENTED_STAGES を増やすだけで全クリア地点も自動更新される。
+// 5 を実装したら IMPLEMENTED_STAGES を増やすだけで全クリア地点も自動更新される。
 const MAX_STAGES = 5;
-const IMPLEMENTED_STAGES = 3;
+const IMPLEMENTED_STAGES = 4;
 
 function startGame(stage, fromBossOnly) {
   selectedStage = stage;

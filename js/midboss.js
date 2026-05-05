@@ -76,13 +76,88 @@ function midShoot_s3(mb, t, speedMul, bulletMul) {
   }
 }
 
+// 4-1 雷符「太鼓の波動」: 太鼓を打って円形衝撃波 + 縦の線雷
+//   サイクル 90F:
+//     +24F: 「打つ」予兆 — 太鼓中心へ粒子が収束
+//     +30F: ドン! — 24方向 shockwave + 上空からプレイヤー周辺に縦雷 3本
+//     +60F: 二度打ち — 16方向の少しオフセットした波
+//     その他: 24Fごとに自機狙いの単発
+function midShoot_s4(mb, t, speedMul, bulletMul) {
+  // 予兆: 6F前にドラムへ粒子が寄ってくる
+  if (t % 90 === 24) {
+    for (let i = 0; i < 14; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const dist = 30 + Math.random() * 22;
+      particles.push({
+        x: mb.x + Math.cos(a) * dist,
+        y: mb.y + Math.sin(a) * dist,
+        vx: -Math.cos(a) * (dist / 6),
+        vy: -Math.sin(a) * (dist / 6),
+        life: 6,
+        color: '#ffcc44'
+      });
+    }
+  }
+  // ドン! — 円形 shockwave + 縦雷
+  if (t % 90 === 30) {
+    explode(mb.x, mb.y, '#ffcc44', 28);
+    const N = Math.max(18, Math.round(24 * bulletMul));
+    for (let i = 0; i < N; i++) {
+      const a = i * Math.PI * 2 / N;
+      enemyBullets.push({
+        x: mb.x, y: mb.y,
+        vx: Math.cos(a) * 1.8 * speedMul,
+        vy: Math.sin(a) * 1.8 * speedMul,
+        r: 5, color: '#ffcc44'
+      });
+    }
+    // 上空から落ちる縦雷 (プレイヤー周辺3本)
+    for (let i = -1; i <= 1; i++) {
+      const xx = clamp(player.x + i * 80, PX + 20, PX + PW - 20);
+      enemyBullets.push({
+        x: xx, y: PY - 10,
+        vx: 0,
+        vy: 4.4 * speedMul,
+        r: 5, color: '#ffffff'
+      });
+    }
+  }
+  // 二度打ち
+  if (t % 90 === 60) {
+    const N = Math.max(12, Math.round(16 * bulletMul));
+    for (let i = 0; i < N; i++) {
+      const a = i * Math.PI * 2 / N + 0.196; // 11°オフセットで隙間を埋める
+      enemyBullets.push({
+        x: mb.x, y: mb.y,
+        vx: Math.cos(a) * 2.4 * speedMul,
+        vy: Math.sin(a) * 2.4 * speedMul,
+        r: 4, color: '#aabbff'
+      });
+    }
+  }
+  // 通常時の自機狙い単発
+  if (t % 24 === 0) {
+    const phase = t % 90;
+    if (phase < 24 || phase > 65) {
+      const dx = player.x - mb.x, dy = player.y - mb.y;
+      const a = Math.atan2(dy, dx);
+      enemyBullets.push({
+        x: mb.x, y: mb.y,
+        vx: Math.cos(a) * 1.6 * speedMul,
+        vy: Math.sin(a) * 1.6 * speedMul,
+        r: 4, color: '#ffeeaa'
+      });
+    }
+  }
+}
+
 const MID_BOSS_BY_STAGE = {
   1: { name: '青妖精',   spellName: '妖精「魔法の輪舞」',   color: '#88aaff', shoot: midShoot_s1 },
   2: { name: '雪魔',     spellName: '雪魔「凍りつく嘲笑」', color: '#88ddff', shoot: midShoot_s2 },
-  3: { name: '九尾狐',   spellName: '狐火「九尾の幻惑」',   color: '#ffaa44', shoot: midShoot_s3 }
+  3: { name: '九尾狐',   spellName: '狐火「九尾の幻惑」',   color: '#ffaa44', shoot: midShoot_s3 },
+  4: { name: '雷童子',   spellName: '雷符「太鼓の波動」',   color: '#ffcc44', shoot: midShoot_s4 }
 };
-// ステージ 4, 5 のプレースホルダ (本実装まではステージ 3 の中ボスを流用)
-MID_BOSS_BY_STAGE[4] = MID_BOSS_BY_STAGE[3];
+// ステージ 5 のプレースホルダ (本実装まではステージ 3 の中ボスを流用)
 MID_BOSS_BY_STAGE[5] = MID_BOSS_BY_STAGE[3];
 
 // state='midBossIntro' に遷移し、90F の出現演出後に通常戦闘へ。

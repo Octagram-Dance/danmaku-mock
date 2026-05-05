@@ -378,6 +378,179 @@ function shoot_s3_4(boss, t, speedMul, bulletMul) {
   }
 }
 
+// ── ステージ4: 雷の少女 ──
+
+// 4-0 通常攻撃: 自機狙い 5way 高速雷玉 + ランダム方向の小弾
+function shoot_s4_0(boss, t, speedMul, bulletMul) {
+  if (t % 14 === 0) {
+    const dx = player.x - boss.x, dy = player.y - boss.y;
+    const baseA = Math.atan2(dy, dx);
+    const n = Math.max(3, Math.round(5 * bulletMul));
+    for (let i = 0; i < n; i++) {
+      const a = baseA + (i - (n-1)/2) * 0.15;
+      enemyBullets.push({
+        x: boss.x, y: boss.y,
+        vx: Math.cos(a) * 2.6 * speedMul,
+        vy: Math.sin(a) * 2.6 * speedMul,
+        r: 5, color: '#ffdd44'
+      });
+    }
+  }
+  if (t % 28 === 14) {
+    const n = Math.max(3, Math.round(4 * bulletMul));
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2;
+      enemyBullets.push({
+        x: boss.x, y: boss.y,
+        vx: Math.cos(a) * 1.6 * speedMul,
+        vy: Math.sin(a) * 1.6 * speedMul,
+        r: 4, color: '#ffeeaa'
+      });
+    }
+  }
+}
+
+// 4-1 雷符「迅雷の閃光」: 8方向の高速雷射 (二連弾でビーム感) + 60Fごとに極太ボルト
+function shoot_s4_1(boss, t, speedMul, bulletMul) {
+  if (t % 12 === 0) {
+    const arms = Math.max(6, Math.round(8 * bulletMul));
+    const off = t * 0.05;
+    for (let i = 0; i < arms; i++) {
+      const a = off + i * Math.PI * 2 / arms;
+      for (let j = 0; j < 2; j++) {
+        enemyBullets.push({
+          x: boss.x, y: boss.y,
+          vx: Math.cos(a) * (2.8 + j * 0.6) * speedMul,
+          vy: Math.sin(a) * (2.8 + j * 0.6) * speedMul,
+          r: 4, color: '#ffeebb'
+        });
+      }
+    }
+  }
+  if (t > 0 && t % 60 === 0) {
+    const dx = player.x - boss.x, dy = player.y - boss.y;
+    const a = Math.atan2(dy, dx);
+    enemyBullets.push({
+      x: boss.x, y: boss.y,
+      vx: Math.cos(a) * 4.5 * speedMul,
+      vy: Math.sin(a) * 4.5 * speedMul,
+      r: 6, color: '#ffffff'
+    });
+  }
+}
+
+// 4-2 稲妻「ジグザグ・ライトニング」:
+// 弾の発射方向を周期的に振って画面に階段状の弾列を作る + 自機狙いの細針バースト
+function shoot_s4_2(boss, t, speedMul, bulletMul) {
+  if (t % 6 === 0) {
+    // 30Fごとに左右が反転、omegaで軽く曲げて稲妻のキレを演出
+    const zig = (Math.floor(t / 30) % 2 === 0) ? 1 : -1;
+    const baseA = Math.PI / 2 + zig * 0.55;
+    enemyBullets.push({
+      x: boss.x + (Math.random() - 0.5) * 60,
+      y: boss.y,
+      vx: Math.cos(baseA) * 1.7 * speedMul,
+      vy: Math.sin(baseA) * 1.7 * speedMul,
+      r: 4, color: '#aabbff',
+      omega: -zig * 0.045,
+      omegaDecay: 0.96
+    });
+  }
+  if (t % 60 === 30) {
+    const dx = player.x - boss.x, dy = player.y - boss.y;
+    const a = Math.atan2(dy, dx);
+    for (let i = -1; i <= 1; i++) {
+      enemyBullets.push({
+        x: boss.x, y: boss.y,
+        vx: Math.cos(a + i * 0.08) * 3.5 * speedMul,
+        vy: Math.sin(a + i * 0.08) * 3.5 * speedMul,
+        r: 4, color: '#ddeeff'
+      });
+    }
+  }
+}
+
+// 4-3 雷神「天鼓の咆哮」:
+// 90Fごとに二重の衝撃波 (太鼓の二度打ち) + 自機狙いの単発雷
+function shoot_s4_3(boss, t, speedMul, bulletMul) {
+  if (t % 90 === 30) {
+    explode(boss.x, boss.y, '#ffcc44', 30);
+    const N = Math.max(20, Math.round(32 * bulletMul));
+    for (let i = 0; i < N; i++) {
+      const a = i * Math.PI * 2 / N;
+      enemyBullets.push({
+        x: boss.x, y: boss.y,
+        vx: Math.cos(a) * 1.7 * speedMul,
+        vy: Math.sin(a) * 1.7 * speedMul,
+        r: 5, color: '#ffcc44'
+      });
+    }
+  }
+  if (t % 90 === 60) {
+    const N = Math.max(16, Math.round(24 * bulletMul));
+    for (let i = 0; i < N; i++) {
+      const a = i * Math.PI * 2 / N + 0.13;
+      enemyBullets.push({
+        x: boss.x, y: boss.y,
+        vx: Math.cos(a) * 2.4 * speedMul,
+        vy: Math.sin(a) * 2.4 * speedMul,
+        r: 4, color: '#ffeeaa'
+      });
+    }
+  }
+  if (t % 18 === 0) {
+    const dx = player.x - boss.x, dy = player.y - boss.y;
+    const a = Math.atan2(dy, dx);
+    enemyBullets.push({
+      x: boss.x, y: boss.y,
+      vx: Math.cos(a) * 2.2 * speedMul,
+      vy: Math.sin(a) * 2.2 * speedMul,
+      r: 4, color: '#ffdd66'
+    });
+  }
+}
+
+// 4-4 終焉「神霹靂」: 螺旋連射 + 120Fごとに全方位高速バースト + 自機狙い針
+function shoot_s4_4(boss, t, speedMul, bulletMul) {
+  if (t % 3 === 0) {
+    const arms = Math.max(3, Math.round(4 * bulletMul));
+    const off = t * 0.13;
+    for (let i = 0; i < arms; i++) {
+      const a = off + i * Math.PI * 2 / arms;
+      enemyBullets.push({
+        x: boss.x, y: boss.y,
+        vx: Math.cos(a) * 2.1 * speedMul,
+        vy: Math.sin(a) * 2.1 * speedMul,
+        r: 4, color: '#ffffff'
+      });
+    }
+  }
+  if (t > 0 && t % 120 === 0) {
+    const N = Math.max(14, Math.round(20 * bulletMul));
+    for (let i = 0; i < N; i++) {
+      const a = i * Math.PI * 2 / N;
+      enemyBullets.push({
+        x: boss.x, y: boss.y,
+        vx: Math.cos(a) * 4.0 * speedMul,
+        vy: Math.sin(a) * 4.0 * speedMul,
+        r: 5, color: '#ffeebb'
+      });
+    }
+  }
+  if (t % 22 === 11) {
+    const dx = player.x - boss.x, dy = player.y - boss.y;
+    const a = Math.atan2(dy, dx);
+    for (let i = -2; i <= 2; i++) {
+      enemyBullets.push({
+        x: boss.x, y: boss.y,
+        vx: Math.cos(a + i * 0.06) * 3.2 * speedMul,
+        vy: Math.sin(a + i * 0.06) * 3.2 * speedMul,
+        r: 3, color: '#ffffff'
+      });
+    }
+  }
+}
+
 // ─────────────────────────────────────────────────────────
 // ステージ別データ
 // ─────────────────────────────────────────────────────────
@@ -403,11 +576,16 @@ const SPELL_CARDS_BY_STAGE = {
     { name: '紅葉「秋風の刃」',          color: '#ff8844', hp: 0.20, shoot: shoot_s3_2 },
     { name: '楓符「燃える葉の舞」',       color: '#ff6644', hp: 0.20, shoot: shoot_s3_3 },
     { name: '神風「天狗の旋風」',        color: '#ffcc66', hp: 0.24, shoot: shoot_s3_4 }
+  ],
+  4: [
+    { name: '通常攻撃',                    color: '#ffdd44', hp: 0.18, shoot: shoot_s4_0 },
+    { name: '雷符「迅雷の閃光」',           color: '#ffeebb', hp: 0.18, shoot: shoot_s4_1 },
+    { name: '稲妻「ジグザグ・ライトニング」', color: '#aabbff', hp: 0.20, shoot: shoot_s4_2 },
+    { name: '雷神「天鼓の咆哮」',           color: '#ffcc44', hp: 0.20, shoot: shoot_s4_3 },
+    { name: '終焉「神霹靂」',              color: '#ffffff', hp: 0.24, shoot: shoot_s4_4 }
   ]
 };
-// ステージ 4, 5 のプレースホルダ (デバッグや保険用)
-// 本実装が来るまではステージ 3 のスペルカードを流用、デバッグ的にプレイは可能。
-SPELL_CARDS_BY_STAGE[4] = SPELL_CARDS_BY_STAGE[3];
+// ステージ 5 のプレースホルダ (本実装まではステージ 3 を流用)
 SPELL_CARDS_BY_STAGE[5] = SPELL_CARDS_BY_STAGE[3];
 
 // 後方互換: 旧 SPELL_CARDS への参照は SPELL_CARDS_BY_STAGE[1] を指す。
@@ -419,7 +597,7 @@ const BOSS_NAMES = {
   1: { ja: '紫雨',     en: 'Lady of the Violet Veil' },
   2: { ja: '雪舞',     en: 'Maiden of the Winter Frost' },
   3: { ja: '紅葉姫',   en: 'Princess of Autumn Leaves' },
-  4: { ja: '（準備中）', en: 'Coming Soon' },
+  4: { ja: '神鳴',     en: 'Mistress of Roaring Thunder' },
   5: { ja: '（準備中）', en: 'Coming Soon' }
 };
 
@@ -430,10 +608,10 @@ const BOSS_NAMES = {
 const BOSS_MOVE_BY_STAGE = {
   1: { cycle: 90,  lerp: 0.03,  teleportInterval: 300 }, // 紫: 中央付近、5秒ごとにテレポート
   2: { cycle: 180, lerp: 0.015, teleportInterval: 0   }, // 氷: 浮遊・ゆったり
-  3: { cycle: 60,  lerp: 0.05,  teleportInterval: 0   }  // 紅葉: 高速・広範囲
+  3: { cycle: 60,  lerp: 0.05,  teleportInterval: 0   }, // 紅葉: 高速・広範囲
+  4: { cycle: 80,  lerp: 0.04,  teleportInterval: 240 }  // 雷: 4秒ごとに雷鳴ワープ
 };
-// ステージ 4, 5 のプレースホルダ (本実装まではステージ 3 と同じ動き)
-BOSS_MOVE_BY_STAGE[4] = BOSS_MOVE_BY_STAGE[3];
+// ステージ 5 のプレースホルダ (本実装まではステージ 3 と同じ動き)
 BOSS_MOVE_BY_STAGE[5] = BOSS_MOVE_BY_STAGE[3];
 
 // ─────────────────────────────────────────────────────────
@@ -559,6 +737,9 @@ function updateBoss() {
           maxLife: 20
         });
       }
+      // 旧位置を保持 (drawBoss で雷ジグザグ描画に使う)
+      boss._warpFromX = oldX;
+      boss._warpFromY = oldY;
       boss.x = newX;
       boss.y = newY;
       boss.targetX = newX;
@@ -587,8 +768,32 @@ function checkBossPlayerCollision() {
   if (boss && Math.hypot(boss.x - player.x, boss.y - player.y) < boss.r + player.hitR) hit();
 }
 
+// ジグザグ雷光: (x1,y1)→(x2,y2) の間を分割して左右にジッタを入れた折れ線で描画。
+// 毎フレーム呼ぶと jitter が変わるので雷が暴れている感が出る。
+function drawLightningZigzag(x1, y1, x2, y2, color, width, segments, jitter) {
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.shadowBlur = 14;
+  ctx.shadowColor = color;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  for (let i = 1; i < segments; i++) {
+    const t = i / segments;
+    const px = x1 + (x2 - x1) * t + (Math.random() - 0.5) * jitter;
+    const py = y1 + (y2 - y1) * t + (Math.random() - 0.5) * jitter;
+    ctx.lineTo(px, py);
+  }
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+  ctx.restore();
+}
+
 function drawBoss() {
   if (!boss) return;
+  // ステージ別ワープ色 (RGB) — テレポート系視覚効果に共通で使う
+  const warpRgb = selectedStage === 4 ? '255, 220, 120' : '170, 102, 255';
+  const warpInnerRgb = selectedStage === 4 ? '255, 250, 220' : '220, 180, 255';
   // ── 残像 (ワープ直後) ──
   // 旧位置と新位置を結ぶ線上にボス画像の半透明コピーが残り、20F でフェード。
   if (boss.afterimages && boss.afterimages.length > 0) {
@@ -596,8 +801,10 @@ function drawBoss() {
       const alpha = (a.life / a.maxLife) * 0.45;
       ctx.save();
       ctx.globalAlpha = alpha;
+      // ステージ4は青白い色合わせで残像が「電気的」に見えるよう加算合成
+      if (selectedStage === 4) ctx.globalCompositeOperation = 'lighter';
       if (!drawImageCentered(`boss_stage${selectedStage}`, a.x, a.y, 88)) {
-        ctx.fillStyle = '#aa66ff';
+        ctx.fillStyle = selectedStage === 4 ? '#bbccff' : '#aa66ff';
         ctx.beginPath();
         ctx.arc(a.x, a.y, boss.r, 0, Math.PI * 2);
         ctx.fill();
@@ -613,10 +820,10 @@ function drawBoss() {
     const baseR = 16 + 14 * pulse;
     const alpha = 0.45 + 0.35 * pulse + t * 0.2; // 時間が経つほど目立つ
     ctx.save();
-    ctx.strokeStyle = `rgba(170, 102, 255, ${Math.min(1, alpha)})`;
+    ctx.strokeStyle = `rgba(${warpRgb}, ${Math.min(1, alpha)})`;
     ctx.lineWidth = 2;
     ctx.shadowBlur = 12;
-    ctx.shadowColor = 'rgba(170, 102, 255, 0.85)';
+    ctx.shadowColor = `rgba(${warpRgb}, 0.85)`;
     // 外側リング
     ctx.beginPath();
     ctx.arc(boss.nextWarpX, boss.nextWarpY, baseR, 0, Math.PI * 2);
@@ -627,41 +834,52 @@ function drawBoss() {
     ctx.arc(boss.nextWarpX, boss.nextWarpY, baseR * 0.55, 0, Math.PI * 2);
     ctx.stroke();
     // 中心点
-    ctx.fillStyle = `rgba(220, 180, 255, ${0.6 * pulse + t * 0.4})`;
+    ctx.fillStyle = `rgba(${warpInnerRgb}, ${0.6 * pulse + t * 0.4})`;
     ctx.beginPath();
     ctx.arc(boss.nextWarpX, boss.nextWarpY, 3, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   }
-  // ── 収束光 (旧位置でボスを包む紫) ──
-  // 残り 15F〜0F で現在位置の周りに紫光が集まる。
+  // ── 収束光 (旧位置でボスを包む) ──
+  // 残り 15F〜0F で現在位置の周りに光が集まる。
   if (boss.teleportInterval > 0 && boss.teleportTimer > 0 && boss.teleportTimer <= 15) {
     const t = (15 - boss.teleportTimer) / 15; // 0→1
     const auraR = 60 - 40 * t;                // 60 → 20 へ収縮
     const grad = ctx.createRadialGradient(boss.x, boss.y, 0, boss.x, boss.y, auraR);
-    grad.addColorStop(0, `rgba(170, 102, 255, ${t * 0.7})`);
-    grad.addColorStop(0.6, `rgba(170, 102, 255, ${t * 0.3})`);
-    grad.addColorStop(1, 'rgba(170, 102, 255, 0)');
+    grad.addColorStop(0, `rgba(${warpRgb}, ${t * 0.7})`);
+    grad.addColorStop(0.6, `rgba(${warpRgb}, ${t * 0.3})`);
+    grad.addColorStop(1, `rgba(${warpRgb}, 0)`);
     ctx.fillStyle = grad;
     ctx.beginPath();
     ctx.arc(boss.x, boss.y, auraR, 0, Math.PI * 2);
     ctx.fill();
   }
-  // 外側の柔らかい発光層 (ゆっくり脈動)
+  // 外側の柔らかい発光層 (ゆっくり脈動) — ステージ4は黄白に切り替え
   const softR = boss.r * 2.6 + Math.sin(frame*0.05)*6;
   const softGrad = ctx.createRadialGradient(boss.x, boss.y, boss.r * 0.8, boss.x, boss.y, softR);
-  softGrad.addColorStop(0, 'rgba(255, 200, 230, 0.25)');
-  softGrad.addColorStop(0.6, 'rgba(255, 150, 210, 0.12)');
-  softGrad.addColorStop(1, 'rgba(255, 150, 210, 0)');
+  if (selectedStage === 4) {
+    softGrad.addColorStop(0, 'rgba(255, 240, 180, 0.30)');
+    softGrad.addColorStop(0.6, 'rgba(255, 220, 120, 0.14)');
+    softGrad.addColorStop(1, 'rgba(255, 220, 120, 0)');
+  } else {
+    softGrad.addColorStop(0, 'rgba(255, 200, 230, 0.25)');
+    softGrad.addColorStop(0.6, 'rgba(255, 150, 210, 0.12)');
+    softGrad.addColorStop(1, 'rgba(255, 150, 210, 0)');
+  }
   ctx.fillStyle = softGrad;
   ctx.beginPath();
   ctx.arc(boss.x, boss.y, softR, 0, Math.PI*2);
   ctx.fill();
-  // 既存のピンクオーラ
+  // 内側オーラ — ステージ4は黄、それ以外はピンク
   const auraR = boss.r + 8 + Math.sin(frame*0.1)*4;
   const grad2 = ctx.createRadialGradient(boss.x, boss.y, boss.r, boss.x, boss.y, auraR);
-  grad2.addColorStop(0, 'rgba(255,100,200,0.6)');
-  grad2.addColorStop(1, 'rgba(255,100,200,0)');
+  if (selectedStage === 4) {
+    grad2.addColorStop(0, 'rgba(255, 230, 120, 0.65)');
+    grad2.addColorStop(1, 'rgba(255, 230, 120, 0)');
+  } else {
+    grad2.addColorStop(0, 'rgba(255,100,200,0.6)');
+    grad2.addColorStop(1, 'rgba(255,100,200,0)');
+  }
   ctx.fillStyle = grad2;
   ctx.beginPath();
   ctx.arc(boss.x, boss.y, auraR, 0, Math.PI*2);
@@ -671,18 +889,51 @@ function drawBoss() {
     const tt = boss.teleportFlash / 30; // 1→0
     const flashR = boss.r + 40 * (1 - tt);
     ctx.save();
-    ctx.strokeStyle = `rgba(170, 102, 255, ${tt * 0.85})`;
+    ctx.strokeStyle = `rgba(${warpRgb}, ${tt * 0.85})`;
     ctx.lineWidth = 3;
     ctx.shadowBlur = 14;
-    ctx.shadowColor = 'rgba(170, 102, 255, 0.9)';
+    ctx.shadowColor = `rgba(${warpRgb}, 0.9)`;
     ctx.beginPath();
     ctx.arc(boss.x, boss.y, flashR, 0, Math.PI*2);
     ctx.stroke();
     ctx.restore();
   }
+  // ── ステージ4: 雷ジグザグ (旧→新位置を結ぶ稲妻) ──
+  // 発動直後 5F だけ強いジグザグを描き、その後 5F は薄いものに切替。
+  if (selectedStage === 4 && boss.teleportFlash > 20 &&
+      typeof boss._warpFromX === 'number' && typeof boss._warpFromY === 'number') {
+    const fromX = boss._warpFromX, fromY = boss._warpFromY;
+    const dist = Math.hypot(boss.x - fromX, boss.y - fromY);
+    const segs = Math.max(8, Math.floor(dist / 14));
+    const jitter = 22;
+    // 太い白い本体 + 細い金色のサイドストライク 2 本
+    drawLightningZigzag(fromX, fromY, boss.x, boss.y, '#ffffff', 3.5, segs, jitter);
+    drawLightningZigzag(fromX, fromY, boss.x, boss.y, '#ffeebb', 1.8, segs, jitter * 1.4);
+    drawLightningZigzag(fromX, fromY, boss.x, boss.y, '#ffcc44', 1.2, segs, jitter * 1.8);
+  }
+  // ── ステージ4: 画面フラッシュ (テレポート直後 3F のみ) ──
+  if (selectedStage === 4 && boss.teleportFlash > 27) {
+    const fa = (boss.teleportFlash - 27) / 3 * 0.35;
+    ctx.fillStyle = `rgba(255, 250, 220, ${fa})`;
+    ctx.fillRect(PX, PY, PW, PH);
+  }
+  // ── ステージ4: 本体周りの電気スパーク (常時、3F毎に小さな雷) ──
+  if (selectedStage === 4 && frame % 3 === 0) {
+    for (let i = 0; i < 2; i++) {
+      const ang = Math.random() * Math.PI * 2;
+      const r0 = boss.r + 4 + Math.random() * 6;
+      const r1 = boss.r + 22 + Math.random() * 14;
+      const x0 = boss.x + Math.cos(ang) * r0;
+      const y0 = boss.y + Math.sin(ang) * r0;
+      const x1 = boss.x + Math.cos(ang) * r1;
+      const y1 = boss.y + Math.sin(ang) * r1;
+      const c = Math.random() < 0.5 ? '#ffffff' : '#ffeebb';
+      drawLightningZigzag(x0, y0, x1, y1, c, 1.2, 4, 6);
+    }
+  }
   // 本体: ステージ別画像、未ロード時はピンクの円+白輪郭にフォールバック
   if (!drawImageCentered(`boss_stage${selectedStage}`, boss.x, boss.y, 88)) {
-    ctx.fillStyle = '#ff6699';
+    ctx.fillStyle = selectedStage === 4 ? '#ffcc44' : '#ff6699';
     ctx.beginPath();
     ctx.arc(boss.x, boss.y, boss.r, 0, Math.PI*2);
     ctx.fill();
@@ -914,15 +1165,19 @@ function drawBossIntro() {
     const slideOff = -36 * (1 - fadeT);
     const nameX = PX + 28 + slideOff;
     const nameY = PY + PH * 0.5 - 6;
+    // ステージ4 は雷の金色グロウ、それ以外は妖魔のピンク
+    const glow = selectedStage === 4 ? '#ffcc44' : '#ff66cc';
+    const nameFill = selectedStage === 4 ? '255, 245, 200' : '255, 220, 240';
+    const subFill  = selectedStage === 4 ? '255, 230, 160' : '255, 200, 220';
     ctx.textAlign = 'left';
     ctx.font = 'bold 38px "Hiragino Mincho ProN", "Yu Mincho", serif';
     ctx.shadowBlur = 18;
-    ctx.shadowColor = '#ff66cc';
-    ctx.fillStyle = `rgba(255, 220, 240, ${fadeT})`;
+    ctx.shadowColor = glow;
+    ctx.fillStyle = `rgba(${nameFill}, ${fadeT})`;
     ctx.fillText(naming.ja, nameX, nameY);
     ctx.font = 'bold 14px sans-serif';
     ctx.shadowBlur = 8;
-    ctx.fillStyle = `rgba(255, 200, 220, ${fadeT * 0.85})`;
+    ctx.fillStyle = `rgba(${subFill}, ${fadeT * 0.85})`;
     ctx.fillText(`— ${naming.en} —`, nameX, nameY + 28);
     ctx.shadowBlur = 0;
   }
