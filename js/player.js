@@ -17,20 +17,52 @@ function updatePlayer() {
 }
 
 function firePlayerBullets() {
-  // 自機弾自動発射
+  const char = getCharacter(selectedCharacter);
+  const dmg = char.bulletPower;
+  // 自機弾自動発射 — bulletSpread によって配置パターンを切替
   if (frame % 5 === 0) {
     const r = powerRank();
-    playerBullets.push({ x: player.x - 6, y: player.y - 10, vx: 0, vy: -10, r: 3 });
-    playerBullets.push({ x: player.x + 6, y: player.y - 10, vx: 0, vy: -10, r: 3 });
-    if (r >= 1) playerBullets.push({ x: player.x, y: player.y - 14, vx: 0, vy: -11, r: 3 });
-    if (r >= 2) {
-      playerBullets.push({ x: player.x - 12, y: player.y - 6, vx: -1.5, vy: -9, r: 3 });
-      playerBullets.push({ x: player.x + 12, y: player.y - 6, vx:  1.5, vy: -9, r: 3 });
+    if (char.bulletSpread === 'concentrated') {
+      // 巫女: 中央 2 列、左右の広がりなし、威力高 (damage で吸収)
+      playerBullets.push({ x: player.x - 3, y: player.y - 10, vx: 0, vy: -10, r: 3, damage: dmg });
+      playerBullets.push({ x: player.x + 3, y: player.y - 10, vx: 0, vy: -10, r: 3, damage: dmg });
+      if (r >= 1) playerBullets.push({ x: player.x, y: player.y - 14, vx: 0, vy: -11, r: 3, damage: dmg });
+      if (r >= 2) {
+        // 中央寄りの 2 列を追加 (横は広げず威力で押す方向性)
+        playerBullets.push({ x: player.x - 6, y: player.y - 8, vx: 0, vy: -10, r: 3, damage: dmg });
+        playerBullets.push({ x: player.x + 6, y: player.y - 8, vx: 0, vy: -10, r: 3, damage: dmg });
+      }
+    } else if (char.bulletSpread === 'wide') {
+      // メイド: 既存の前方 3 列 + 左右斜めの 2 列で扇状 (合計 5 方向 @ Power3)
+      playerBullets.push({ x: player.x - 6, y: player.y - 10, vx: 0, vy: -10, r: 3, damage: dmg });
+      playerBullets.push({ x: player.x + 6, y: player.y - 10, vx: 0, vy: -10, r: 3, damage: dmg });
+      if (r >= 1) playerBullets.push({ x: player.x, y: player.y - 14, vx: 0, vy: -11, r: 3, damage: dmg });
+      // wide は Power0 から左右の斜めを軽めに撒く (機動キャラの広範囲性)
+      playerBullets.push({ x: player.x - 14, y: player.y - 4, vx: -1.0, vy: -9, r: 3, damage: dmg });
+      playerBullets.push({ x: player.x + 14, y: player.y - 4, vx:  1.0, vy: -9, r: 3, damage: dmg });
+      if (r >= 2) {
+        // Power2 以降は更に広い角度の 2 列を追加
+        playerBullets.push({ x: player.x - 16, y: player.y - 2, vx: -2.2, vy: -8.5, r: 3, damage: dmg });
+        playerBullets.push({ x: player.x + 16, y: player.y - 2, vx:  2.2, vy: -8.5, r: 3, damage: dmg });
+      }
+    } else {
+      // 魔女 (standard): 既存挙動
+      playerBullets.push({ x: player.x - 6, y: player.y - 10, vx: 0, vy: -10, r: 3, damage: dmg });
+      playerBullets.push({ x: player.x + 6, y: player.y - 10, vx: 0, vy: -10, r: 3, damage: dmg });
+      if (r >= 1) playerBullets.push({ x: player.x, y: player.y - 14, vx: 0, vy: -11, r: 3, damage: dmg });
+      if (r >= 2) {
+        playerBullets.push({ x: player.x - 12, y: player.y - 6, vx: -1.5, vy: -9, r: 3, damage: dmg });
+        playerBullets.push({ x: player.x + 12, y: player.y - 6, vx:  1.5, vy: -9, r: 3, damage: dmg });
+      }
     }
   }
-  // ホーミング弾は別頻度で発射 (15Fごと = 1秒4発)
-  if (powerRank() >= 3 && frame % 15 === 0) {
-    homingBullets.push({ x: player.x, y: player.y - 14, vx: 0, vy: -6, r: 4, life: 90 });
+  // ホーミング弾: homingEnabled が false の巫女は発射しない。
+  // homingRate でレートを倍率調整 (15 / rate F に 1 発)。
+  if (char.homingEnabled && char.homingRate > 0 && powerRank() >= 3) {
+    const interval = Math.max(4, Math.round(15 / char.homingRate));
+    if (frame % interval === 0) {
+      homingBullets.push({ x: player.x, y: player.y - 14, vx: 0, vy: -6, r: 4, life: 90, damage: dmg });
+    }
   }
 }
 
@@ -104,8 +136,11 @@ function drawPlayer() {
     ctx.fill();
   }
   if (player.invuln === 0 || frame % 4 < 2) {
-    // 機体本体: 画像 (後ろ向き)。読み込み未完了/失敗時は三角ポリゴンにフォールバック
-    if (!drawImageCentered('player', player.x, player.y, 40)) {
+    // 機体本体: 選択中キャラの後ろ向き画像。未ロード/失敗時は三角ポリゴンにフォールバック
+    const _char = getCharacter(selectedCharacter);
+    const _drewBack = drawImageCentered(_char.backImage, player.x, player.y, 40);
+    // フォールバックチェーン: char back → 旧 'player' → 三角
+    if (!_drewBack && !drawImageCentered('player', player.x, player.y, 40)) {
       ctx.fillStyle = '#88ccff';
       ctx.beginPath();
       ctx.moveTo(player.x, player.y - 14);

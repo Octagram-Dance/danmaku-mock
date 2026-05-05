@@ -31,6 +31,13 @@ function drawImageCentered(key, cx, cy, size) {
 
 // 全アセットの読み込みを開始 (script ロード時に並列で開始)
 loadImage('player',        'assets/player.png');
+// キャラクター別 (3 種 × 表裏 = 6 枚)。後ろ姿はゲームプレイ中、正面は選択画面で使用。
+loadImage('player_witch_front', 'assets/players/witch_front.png');
+loadImage('player_witch_back',  'assets/players/witch_back.png');
+loadImage('player_miko_front',  'assets/players/miko_front.png');
+loadImage('player_miko_back',   'assets/players/miko_back.png');
+loadImage('player_maid_front',  'assets/players/maid_front.png');
+loadImage('player_maid_back',   'assets/players/maid_back.png');
 loadImage('enemy_normal',  'assets/enemies/normal.png');
 loadImage('enemy_spread',  'assets/enemies/spread.png');
 loadImage('enemy_fast',    'assets/enemies/fast.png');

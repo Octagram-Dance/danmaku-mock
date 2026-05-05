@@ -26,9 +26,13 @@ resize();
 let state = 'title';
 let menuIndex = 0;
 let pauseMenuIndex = 0;
+let characterMenuIndex = 0; // 'characterSelect' state でのカーソル位置 (CHARACTERS index)
+let characterAnimTimer = 0; // キャラ切替時の正面イラスト フェードイン (0..10、0 で非演出)
 
 let selectedStage = 1;
 let selectedDifficulty = 'Normal';
+// 選択中の自機キャラ ID ('witch' | 'miko' | 'maid')。前回選択を localStorage から復元。
+let selectedCharacter = loadCharacter();
 let bossOnlyMode = false;
 // 'difficulty' state に到達した経路。true なら stageSelect 経由 (戻り先 = stageSelect)、
 // false なら title から「はじめから遊ぶ」直行 (戻り先 = title)。
@@ -80,7 +84,15 @@ const IMPLEMENTED_STAGES = 5;
 function startGame(stage, fromBossOnly) {
   selectedStage = stage;
   bossOnlyMode = !!fromBossOnly;
-  player = { x: PX + PW/2, y: PY + PH - 80, r: 6, hitR: 2, speed: 4, slowSpeed: 1.5, invuln: 0 };
+  // 選択中キャラから speed を焼き付ける。slowSpeed は既存比率 (1.5/4.0 = 0.375) を維持。
+  const char = getCharacter(selectedCharacter);
+  const baseSpeed = char.speed;
+  player = {
+    x: PX + PW/2, y: PY + PH - 80, r: 6, hitR: 2,
+    speed: baseSpeed,
+    slowSpeed: baseSpeed * 0.375,
+    invuln: 0
+  };
   playerBullets = [];
   homingBullets = [];
   enemies = [];
@@ -196,21 +208,35 @@ function nextStage() {
   }
 }
 
+// title / stageSelect から characterSelect 状態へ遷移する共通処理。
+// 既存の cameViaStageSelect は維持: characterSelect Esc 時に元の画面に戻す手がかり。
+function enterCharacterSelect() {
+  state = 'characterSelect';
+  characterMenuIndex = characterIndex(selectedCharacter);
+  characterAnimTimer = 10; // 入場時にフェードイン
+}
+
 function selectMenu() {
   if (state === 'title') {
     if (menuIndex === 0) {
-      state = 'difficulty'; menuIndex = 1;
+      // はじめから遊ぶ: characterSelect へ (title 直行ルート)
       selectedStage = 1; bossOnlyMode = false;
-      cameViaStageSelect = false; // title 直行
+      cameViaStageSelect = false;
+      enterCharacterSelect();
     } else if (menuIndex === 1) { state = 'stageSelect'; menuIndex = 0; bossOnlyMode = false; }
     else if (menuIndex === 2) { state = 'stageSelect'; menuIndex = 0; bossOnlyMode = true; }
   } else if (state === 'stageSelect') {
-    // 未実装ステージ (4, 5 など) は選択不可: 黙って何もしない
+    // 未実装ステージ (5 など、現状なし) は選択不可: 黙って何もしない
     if (menuIndex >= IMPLEMENTED_STAGES) return;
     selectedStage = menuIndex + 1;
+    cameViaStageSelect = true; // stageSelect 経由
+    enterCharacterSelect();
+  } else if (state === 'characterSelect') {
+    // 選択キャラを確定 → difficulty へ
+    selectedCharacter = CHARACTERS[characterMenuIndex].id;
+    saveCharacter(selectedCharacter);
     state = 'difficulty';
     menuIndex = 1;
-    cameViaStageSelect = true; // stageSelect 経由
   } else if (state === 'difficulty') {
     selectedDifficulty = DIFFS[menuIndex];
     startGame(selectedStage, bossOnlyMode);
@@ -223,14 +249,18 @@ function goBackFromMenu() {
     state = 'title';
     // どの title 項目から来たかでカーソル位置を復元 (1=ステージ選択 / 2=ボスから遊ぶ)
     menuIndex = bossOnlyMode ? 2 : 1;
-  } else if (state === 'difficulty') {
+  } else if (state === 'characterSelect') {
+    // characterSelect → 元の画面 (stageSelect 経由なら stageSelect、そうでなければ title)
     if (cameViaStageSelect) {
       state = 'stageSelect';
-      menuIndex = Math.max(0, Math.min(MAX_STAGES - 1, selectedStage - 1)); // ステージ番号 → menuIndex
+      menuIndex = Math.max(0, Math.min(MAX_STAGES - 1, selectedStage - 1));
     } else {
       state = 'title';
-      menuIndex = 0; // "はじめから遊ぶ" にカーソル復帰
+      menuIndex = 0;
     }
+  } else if (state === 'difficulty') {
+    // difficulty → characterSelect (キャラ再選択)
+    enterCharacterSelect();
   }
 }
 
@@ -242,10 +272,35 @@ function handleClick(p) {
         menuIndex = i; selectMenu(); return;
       }
     }
-  } else if (state === 'stageSelect' || state === 'difficulty') {
-    // 左上の「← 戻る」ボタンタップ判定
+  } else if (state === 'stageSelect' || state === 'difficulty' || state === 'characterSelect') {
+    // 左上の「← 戻る」ボタンタップ判定 (3 メニュー共通)
     if (p.x >= 20 && p.x <= 160 && p.y >= 20 && p.y <= 80) {
       goBackFromMenu();
+      return;
+    }
+    if (state === 'characterSelect') {
+      // drawCharacterSelect の 3 アイコン (横並び) と同じ座標で判定
+      const iconY = 200;
+      const iconR = 50;
+      const startX = W / 2 - 200;
+      for (let i = 0; i < CHARACTERS.length; i++) {
+        const cx = startX + i * 200;
+        if (Math.hypot(p.x - cx, p.y - iconY) < iconR + 12) {
+          if (characterMenuIndex === i) {
+            // 既に選択中のキャラを再タップ → 確定
+            selectMenu();
+          } else {
+            characterMenuIndex = i;
+            characterAnimTimer = 10;
+          }
+          return;
+        }
+      }
+      // 中央の正面イラストエリアをタップでも確定 (大きいタップターゲット)
+      if (Math.hypot(p.x - W / 2, p.y - 420) < 140) {
+        selectMenu();
+        return;
+      }
       return;
     }
     if (state === 'stageSelect') {
@@ -347,6 +402,19 @@ function update() {
     if ((justPressed['Escape'] || justPressed['x'] || justPressed['X']) && state !== 'title') {
       goBackFromMenu();
     }
+  }
+  if (state === 'characterSelect') {
+    // ←→ で選択切り替え (上下も受け付ける = 既存メニューの感覚に合わせる)
+    let moved = 0;
+    if (justPressed['ArrowLeft']  || justPressed['ArrowUp'])   moved = -1;
+    if (justPressed['ArrowRight'] || justPressed['ArrowDown']) moved = +1;
+    if (moved !== 0) {
+      characterMenuIndex = (characterMenuIndex + moved + CHARACTERS.length) % CHARACTERS.length;
+      characterAnimTimer = 10;
+    }
+    if (characterAnimTimer > 0) characterAnimTimer--;
+    if (justPressed['z'] || justPressed['Z'] || justPressed['Enter'] || justPressed[' ']) selectMenu();
+    if (justPressed['Escape'] || justPressed['x'] || justPressed['X']) goBackFromMenu();
   }
   if (state === 'paused') {
     if (justPressed['ArrowUp']) pauseMenuIndex--;
@@ -545,6 +613,7 @@ function draw() {
   ctx.fillRect(0, 0, W, H);
   if (state === 'title') drawTitle();
   else if (state === 'stageSelect') drawStageSelect();
+  else if (state === 'characterSelect') drawCharacterSelect();
   else if (state === 'difficulty') drawDifficulty();
   else drawGame();
   drawFpsCounter();

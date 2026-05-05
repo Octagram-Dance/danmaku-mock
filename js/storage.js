@@ -65,3 +65,18 @@ function loadFpsVisible() {
 function saveFpsVisible(v) {
   try { localStorage.setItem(FPS_VISIBLE_KEY, v ? '1' : '0'); } catch (e) {}
 }
+
+// 自機キャラ選択 (witch / miko / maid)。デフォルトは witch。
+const CHARACTER_KEY = 'gensou_danmaku_character_v1';
+
+function loadCharacter() {
+  try {
+    const v = localStorage.getItem(CHARACTER_KEY);
+    if (v === 'witch' || v === 'miko' || v === 'maid') return v;
+  } catch (e) {}
+  return 'witch';
+}
+
+function saveCharacter(id) {
+  try { localStorage.setItem(CHARACTER_KEY, id); } catch (e) {}
+}

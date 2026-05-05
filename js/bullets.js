@@ -54,7 +54,8 @@ function checkPlayerBulletHits() {
       // 中ボスは入場中は無敵 (スライドダウン中)
       if (e === midBoss && midBoss.entering) return;
       if (Math.hypot(b.x - e.x, b.y - e.y) < e.r + b.r) {
-        e.hp -= 1; // ホーミングも通常弾も同じ1ダメージ
+        // 弾自身の damage (キャラの bulletPower 由来) を反映、未指定は 1.0 (旧挙動)
+        e.hp -= (typeof b.damage === 'number' ? b.damage : 1);
         b._consumed = true;
         // ボス完全撃破
         if (e === boss && boss.hp <= 0 && boss.pattern >= boss.spellCards.length - 1) {

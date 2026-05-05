@@ -23,10 +23,12 @@ function useBomb() {
     }
   });
   enemyBullets = [];
-  // 自機周辺から放射状の発光パーティクル (波紋の縁を彩る)
+  // 自機周辺から放射状の発光パーティクル (波紋の縁を彩る、bombRange で射出速度を倍率調整)
+  const _char = getCharacter(selectedCharacter);
+  const rangeMul = _char.bombRange;
   for (let i = 0; i < 40; i++) {
     const a = (i / 40) * Math.PI * 2 + Math.random() * 0.1;
-    const s = 5 + Math.random() * 3;
+    const s = (5 + Math.random() * 3) * rangeMul;
     particles.push({
       x: player.x, y: player.y,
       vx: Math.cos(a) * s,
@@ -35,19 +37,20 @@ function useBomb() {
       color: i % 2 === 0 ? '#aaddff' : '#ffffff'
     });
   }
-  // ボムによるダメージ
+  // ボムによるダメージ (bombPower 倍率)
+  const powMul = _char.bombPower;
   enemies.forEach(e => {
-    e.hp -= 4;
+    e.hp -= 4 * powMul;
     if (e.hp <= 0) killEnemy(e);
   });
   // 耐久スペル中はボムダメージも通らない
   if (boss && boss.spellAnnounceTimer <= 0 && boss.invulnAfterSpell <= 0
       && !(boss.spellCards[boss.pattern] && boss.spellCards[boss.pattern].invulnerable)) {
-    boss.hp -= 80;
+    boss.hp -= 80 * powMul;
   }
   // 中ボスにもボムダメージ (入場中は無敵)
   if (midBossActive && midBoss && !midBoss.entering) {
-    midBoss.hp -= 12;
+    midBoss.hp -= 12 * powMul;
     if (midBoss.hp <= 0) killMidBoss();
   }
 }
@@ -68,13 +71,14 @@ function updateBomb() {
       });
       enemyBullets = [];
     }
-    // ボム中も少しずつボスにダメージ (耐久スペル中は無効)
+    // ボム中も少しずつボスにダメージ (耐久スペル中は無効、bombPower 倍率)
+    const _powMul = getCharacter(selectedCharacter).bombPower;
     if (boss && bombTimer % 10 === 0 && boss.spellAnnounceTimer <= 0 && boss.invulnAfterSpell <= 0
         && !(boss.spellCards[boss.pattern] && boss.spellCards[boss.pattern].invulnerable)) {
-      boss.hp -= 5;
+      boss.hp -= 5 * _powMul;
     }
     if (midBossActive && midBoss && !midBoss.entering && bombTimer % 10 === 0) {
-      midBoss.hp -= 1;
+      midBoss.hp -= 1 * _powMul;
       if (midBoss.hp <= 0) killMidBoss();
     }
     if (bombTimer <= 0) bombActive = false;
@@ -106,10 +110,11 @@ function drawParticles() {
 }
 
 function drawBombShockwave() {
-  // ボムエフェクト (画面全体の白い波)
+  // ボムエフェクト (画面全体の白い波) — bombRange で半径を倍率調整
   if (bombActive) {
     const t = 1 - (bombTimer / 180);
-    const ringR = t * Math.max(PW, PH) * 1.2;
+    const rangeMul = getCharacter(selectedCharacter).bombRange;
+    const ringR = t * Math.max(PW, PH) * 1.2 * rangeMul;
     ctx.save();
     ctx.beginPath();
     ctx.rect(PX, PY, PW, PH);
