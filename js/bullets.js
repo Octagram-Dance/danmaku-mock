@@ -92,16 +92,21 @@ function checkPlayerBulletHits() {
 }
 
 function moveAndFilterEnemyBullets() {
+  // 子弾の一時格納先。filter 中に enemyBullets を直接 push すると、
+  // filter() がイテレーション開始時に長さをスナップショットしているため
+  // 新しく push された要素は filter 結果に含まれず、最後の代入で消滅する。
+  // _splitFn には pending を渡し、filter 完了後にまとめて append する。
+  const pending = [];
   enemyBullets = enemyBullets.filter(b => {
     // グレイズ閃光のフェードは凍結状態とは独立して常に減衰
     if (b._grazeFlash > 0) b._grazeFlash--;
 
-    // _splitTimer: タイマー満了で _splitFn(b) を呼んで子弾を生成、親弾は消滅。
+    // _splitTimer: タイマー満了で _splitFn(b, pending) を呼んで子弾を生成、親弾は消滅。
     // ステージ5「冷たい光輪」のような 2 段階弾幕用。
     if (b._splitTimer !== undefined) {
       b._splitTimer--;
       if (b._splitTimer <= 0) {
-        if (b._splitFn) b._splitFn(b);
+        if (b._splitFn) b._splitFn(b, pending);
         return false;
       }
     }
@@ -165,6 +170,8 @@ function moveAndFilterEnemyBullets() {
     b.x += b.vx; b.y += b.vy;
     return b.x > PX-10 && b.x < PX+PW+10 && b.y > PY-10 && b.y < PY+PH+10;
   });
+  // _splitFn が pending に積んだ子弾を反映 (filter 後の新しい配列に追加)
+  if (pending.length) enemyBullets.push(...pending);
 }
 
 // グレイズ判定の半径 (player 中心からの距離)。
