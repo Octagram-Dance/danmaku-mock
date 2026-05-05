@@ -22,14 +22,17 @@ window.addEventListener('keyup', e => {
   if (e.key === 'Shift') keys['Shift'] = false;
 });
 
-// 相対ドラッグ方式: 画面のどこに触れても、その瞬間の指位置 (touchAnchor) と
+// 相対ドラッグ方式: 画面のどこに触れても、その瞬間のポインタ位置 (anchor) と
 // 自機位置 (playerAnchor) を起点に、移動分 (delta) を自機位置に加算する。
-// プレイ領域の外でドラッグを始めても自機が追従するので、画面の小さな端末でも操作しやすい。
+// canvas 上ならプレイ領域外 (HUD 領域、上下左右の余白) でもドラッグ開始可能。
+// touch / mouse の両方で同じ動作。
 let touchActive = false;
-let touchAnchorX = 0, touchAnchorY = 0;   // ドラッグ開始時の指位置 (canvas 座標)
+let touchAnchorX = 0, touchAnchorY = 0;   // ドラッグ開始時のポインタ位置 (canvas 座標)
 let playerAnchorX = 0, playerAnchorY = 0; // ドラッグ開始時の自機位置
 let touchSlowMode = false;
 let touchStartTime = 0;
+let mouseDragActive = false;              // マウスドラッグ用 (touch とは独立に管理)
+
 function getCanvasPos(clientX, clientY) {
   const rect = canvas.getBoundingClientRect();
   return {
@@ -37,45 +40,49 @@ function getCanvasPos(clientX, clientY) {
     y: (clientY - rect.top) * (H / rect.height)
   };
 }
-canvas.addEventListener('touchstart', e => {
-  e.preventDefault();
-  // 2本指で低速モード
-  if (e.touches.length >= 2) {
-    touchSlowMode = true;
-  }
-  const t = e.touches[0];
-  const p = getCanvasPos(t.clientX, t.clientY);
-  // ボムボタン判定 (右下) — 視覚半径 28、タップ判定は +10 の 38 (押しやすさ重視)
+
+// state='play' で canvas 内のどこを始点にしても自機ドラッグを開始するヘルパー。
+// ※プレイ領域内かどうかの座標判定は意図的に持たない (canvas 内ならどこでも OK)。
+function startPlayerDrag(p) {
+  touchAnchorX = p.x;
+  touchAnchorY = p.y;
+  playerAnchorX = player.x;
+  playerAnchorY = player.y;
+  touchActive = true;
+  touchStartTime = Date.now();
+}
+
+// 相対ドラッグの自機位置更新 (touchmove / mousemove 共通)
+function updatePlayerFromDrag(p) {
+  const dx = p.x - touchAnchorX;
+  const dy = p.y - touchAnchorY;
+  player.x = clamp(playerAnchorX + dx, PX+10, PX+PW-10);
+  player.y = clamp(playerAnchorY + dy, PY+10, PY+PH-10);
+}
+
+// touchstart / mousedown 共通の入力ディスパッチ。
+//   1. state='play' のボム / ポーズボタン (canvas 内、判定は座標限定)
+//   2. カットイン系の state はタップでスキップ
+//   3. paused のメニュー項目タップ
+//   4. それ以外で state='play' なら → どこでもドラッグ開始
+//   5. それ以外なら handleClick (タイトル/ステージ選択/難易度等のメニュー)
+// 返値 true は「ボタン/メニュー扱いで処理済み (ドラッグ開始しない)」、
+// false は「ドラッグ開始した or 何もしなかった」。
+function handlePointerDown(p) {
+  // ボム / ポーズボタンは canvas 内の特定座標限定 (state='play' のみ)
   if (state === 'play') {
     const bx = PX + PW - 50, by = PY + PH - 50;
-    if (Math.hypot(p.x - bx, p.y - by) < 38) {
-      useBomb();
-      return;
-    }
-    // ポーズボタン判定 (右上) — 視覚半径 18、タップ判定は +10 の 28
+    if (Math.hypot(p.x - bx, p.y - by) < 38) { useBomb(); return true; }
     const px2 = PX + PW - 30, py2 = PY + 30;
     if (Math.hypot(p.x - px2, p.y - py2) < 28) {
-      state = 'paused';
-      pauseMenuIndex = 0;
-      return;
+      state = 'paused'; pauseMenuIndex = 0; return true;
     }
   }
-  // ボス出現カットイン中: タップでスキップ
-  if (state === 'bossIntro') {
-    bossIntroTimer = 0;
-    return;
-  }
-  // スペルカード突入カットイン中: タップでスキップ
-  if (state === 'spellCutin') {
-    spellCutinTimer = 0;
-    return;
-  }
-  // 中ボス出現カットイン中: タップでスキップ
-  if (state === 'midBossIntro') {
-    midBossIntroTimer = 0;
-    return;
-  }
-  // ポーズ画面のメニュータップ
+  // カットインスキップ
+  if (state === 'bossIntro')   { bossIntroTimer = 0;    return true; }
+  if (state === 'spellCutin')  { spellCutinTimer = 0;   return true; }
+  if (state === 'midBossIntro'){ midBossIntroTimer = 0; return true; }
+  // ポーズ画面のメニュー項目タップ
   if (state === 'paused') {
     const cx = PX + PW/2;
     const cyBase = PY + PH/2;
@@ -85,34 +92,41 @@ canvas.addEventListener('touchstart', e => {
         pauseMenuIndex = i;
         if (i === 0) state = 'play';
         else { state = 'title'; menuIndex = 0; }
-        return;
+        return true;
       }
     }
+    // メニュー項目外のタップは何もしない (paused ではドラッグ開始もさせない)
+    return true;
   }
-  // 'play' なら画面のどこを触ってもドラッグ開始 (相対ドラッグ方式、プレイ領域外も OK)
+  // ↑ ここまで早期 return しなかった場合:
+  //   - state='play' なら canvas のどこを触っても OK でドラッグ開始
+  //   - その他 (title / stageSelect / difficulty / clear / gameOver / allClear / transition)
+  //     は handleClick へ
   if (state === 'play') {
-    touchAnchorX = p.x;
-    touchAnchorY = p.y;
-    playerAnchorX = player.x;
-    playerAnchorY = player.y;
-    touchActive = true;
-    touchStartTime = Date.now();
-  } else {
-    handleClick(p);
+    startPlayerDrag(p);
+    return false;
   }
+  handleClick(p);
+  return false;
+}
+
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (e.touches.length >= 2) touchSlowMode = true;
+  const t = e.touches[0];
+  const p = getCanvasPos(t.clientX, t.clientY);
+  handlePointerDown(p);
 }, { passive: false });
+
 canvas.addEventListener('touchmove', e => {
   e.preventDefault();
   if (!touchActive) return;
   if (e.touches.length >= 2) touchSlowMode = true;
   const t = e.touches[0];
   const p = getCanvasPos(t.clientX, t.clientY);
-  // 相対ドラッグ: 指の移動量だけ自機位置を動かす (clamp でプレイ領域に収める)
-  const dx = p.x - touchAnchorX;
-  const dy = p.y - touchAnchorY;
-  player.x = clamp(playerAnchorX + dx, PX+10, PX+PW-10);
-  player.y = clamp(playerAnchorY + dy, PY+10, PY+PH-10);
+  updatePlayerFromDrag(p);
 }, { passive: false });
+
 canvas.addEventListener('touchend', e => {
   e.preventDefault();
   if (e.touches.length === 0) {
@@ -120,9 +134,39 @@ canvas.addEventListener('touchend', e => {
     touchSlowMode = false;
   }
 }, { passive: false });
+
+// マウスでも touch と同じ相対ドラッグを実装 (PC でも動作確認しやすく、
+// DevTools のモバイルエミュレーションでも touchstart 相当が反応する)。
+canvas.addEventListener('mousedown', e => {
+  // 左ボタンのみ
+  if (e.button !== 0) return;
+  const p = getCanvasPos(e.clientX, e.clientY);
+  const handledByButton = handlePointerDown(p);
+  // touchActive が立った場合 (state='play' のドラッグ開始) はマウス用フラグもセット
+  if (!handledByButton && touchActive) {
+    mouseDragActive = true;
+  }
+});
+
+window.addEventListener('mousemove', e => {
+  if (!mouseDragActive || !touchActive) return;
+  const p = getCanvasPos(e.clientX, e.clientY);
+  updatePlayerFromDrag(p);
+});
+
+window.addEventListener('mouseup', e => {
+  if (!mouseDragActive) return;
+  mouseDragActive = false;
+  touchActive = false;
+});
+
+// click は menu 用 (title / stageSelect / difficulty 等)。
+// state='play' で mousedown→mouseup の単発クリックの場合、touchActive が立った後に
+// mouseup で false に戻るのでドラッグ自体は無害。click は handleClick に流れるが、
+// handleClick は 'play' を扱わないので何もしない。
 canvas.addEventListener('click', e => {
   const p = getCanvasPos(e.clientX, e.clientY);
-  handleClick(p);
+  if (state !== 'play') handleClick(p);
 });
 
 function isSlowMode() {
