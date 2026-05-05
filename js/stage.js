@@ -214,8 +214,113 @@ function drawBgStage3() {
   }
 }
 
+// ─────────────────────────────────────────────────────────
+// ステージ4: 雷雲 (4層パララックス)
+// ─────────────────────────────────────────────────────────
+function drawBgStage4() {
+  // Layer 0: 雷雲グラデ (濃紺→青紫→暗紫)
+  const grad = ctx.createLinearGradient(0, PY, 0, PY + PH);
+  grad.addColorStop(0, '#08081a');
+  grad.addColorStop(0.4, '#181838');
+  grad.addColorStop(0.7, '#0c142a');
+  grad.addColorStop(1, '#04040c');
+  ctx.fillStyle = grad;
+  ctx.fillRect(PX, PY, PW, PH);
+
+  // Layer 1: 雲のシルエット (奥、frame * 0.2 でゆっくり横スクロール)
+  // 大小ふたつの楕円ブロブを左右に流して重く垂れ込めた雲を表現
+  ctx.fillStyle = 'rgba(40, 40, 70, 0.55)';
+  const cloudOff = (frame * 0.2) % (PW + 200);
+  for (let i = 0; i < 3; i++) {
+    const cx = PX + ((i * 220 - cloudOff + (PW + 200) * 2) % (PW + 200)) - 100;
+    const cy = PY + 70 + i * 40;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, 130, 36, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(cx + 60, cy + 18, 90, 24, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Layer 2: 遠い雷光 (3秒周期でぼんやり光る)
+  const farCyc = 180;
+  const farT = frame % farCyc;
+  if (farT < 14) {
+    const fa = (14 - farT) / 14 * 0.22;
+    const seed = Math.floor(frame / farCyc);
+    const fx = PX + ((seed * 113) % PW);
+    const fy = PY + 50 + ((seed * 47) % 90);
+    const g2 = ctx.createRadialGradient(fx, fy, 0, fx, fy, 220);
+    g2.addColorStop(0, `rgba(180, 200, 255, ${fa})`);
+    g2.addColorStop(1, 'rgba(180, 200, 255, 0)');
+    ctx.fillStyle = g2;
+    ctx.fillRect(PX, PY, PW, PH);
+  }
+
+  // Layer 3: 雨粒 (斜めに落ちる細い線、弾と区別するため彩度低め+ストローク)
+  ctx.strokeStyle = 'rgba(180, 200, 240, 0.35)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 80; i++) {
+    const speed = 5 + (i % 3) * 1.5;
+    const y = PY + ((i * 53 + frame * speed) % (PH + 30)) - 20;
+    const x = PX + ((i * 73 - frame * 1.5 + PW * 4) % PW);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x - 3, y - 10);
+    ctx.stroke();
+  }
+
+  // Layer 4 (手前): 巨大稲妻 (8秒周期で 10F だけ画面を白く照らす)
+  // ジグザグの折れ線は seed ベースで疑似乱数化、点滅期間中は形が固定的に見える
+  const bigCyc = 480;
+  const bigT = frame % bigCyc;
+  if (bigT < 10) {
+    const fa = (10 - bigT) / 10;
+    // 画面全体のフラッシュ
+    ctx.fillStyle = `rgba(220, 230, 255, ${fa * 0.4})`;
+    ctx.fillRect(PX, PY, PW, PH);
+    // 稲妻本体 (上から下、ジグザグ)
+    const seed = Math.floor(frame / bigCyc);
+    const startX = PX + 50 + ((seed * 191) % (PW - 100));
+    const segs = 8;
+    ctx.save();
+    ctx.shadowBlur = 16;
+    ctx.shadowColor = '#bbccff';
+    // 太い白いコア + 細い金枝
+    ctx.strokeStyle = `rgba(255, 255, 255, ${0.85 * fa})`;
+    ctx.lineWidth = 2.6;
+    ctx.beginPath();
+    let curX = startX;
+    ctx.moveTo(curX, PY);
+    for (let i = 1; i <= segs; i++) {
+      // sin ベースの疑似乱数で seed 内では一貫した形
+      const off = Math.sin((seed * 13 + i * 53) * 0.91) * 40;
+      curX = startX + off + (i - 1) * 6;
+      const cy = PY + (PH * i / segs);
+      ctx.lineTo(curX, cy);
+    }
+    ctx.stroke();
+    // 金色の薄い枝雷
+    ctx.strokeStyle = `rgba(255, 220, 140, ${0.6 * fa})`;
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    curX = startX;
+    ctx.moveTo(curX + 6, PY + 10);
+    for (let i = 1; i <= segs; i++) {
+      const off = Math.sin((seed * 13 + i * 53) * 0.91) * 40;
+      curX = startX + off + (i - 1) * 6;
+      const cy = PY + (PH * i / segs);
+      ctx.lineTo(curX + 4, cy);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
 function drawStageBackground(stage) {
   if (stage === 1) drawBgStage1();
   else if (stage === 2) drawBgStage2();
-  else drawBgStage3(); // 4, 5 等の未実装ステージはステージ 3 背景にフォールバック
+  else if (stage === 3) drawBgStage3();
+  else if (stage === 4) drawBgStage4();
+  else drawBgStage3(); // 5 等の未実装ステージはステージ 3 背景にフォールバック
 }

@@ -39,6 +39,8 @@ loadImage('enemy_tank',    'assets/enemies/tank.png');
 loadImage('boss_stage1',   'assets/bosses/stage1.png');
 loadImage('boss_stage2',   'assets/bosses/stage2.png');
 loadImage('boss_stage3',   'assets/bosses/stage3.png');
+loadImage('boss_stage4',   'assets/bosses/stage4.png');
 loadImage('midboss_stage1', 'assets/midbosses/stage1.png');
 loadImage('midboss_stage2', 'assets/midbosses/stage2.png');
 loadImage('midboss_stage3', 'assets/midbosses/stage3.png');
+loadImage('midboss_stage4', 'assets/midbosses/stage4.png');
