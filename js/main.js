@@ -391,6 +391,10 @@ function update() {
     updateFloatTexts();
   }
 
+  // メニュー系ステートは else if チェーンで mutually exclusive にする。
+  // (justPressed は update() 末尾で一括クリアされるので、独立した if だと
+  //  selectMenu() が state を遷移させた直後に次ブロックが同じキーを再消費して
+  //  characterSelect が即座にスキップされる。)
   if (state === 'title' || state === 'stageSelect' || state === 'difficulty') {
     if (justPressed['ArrowUp']) menuIndex--;
     if (justPressed['ArrowDown']) menuIndex++;
@@ -402,8 +406,7 @@ function update() {
     if ((justPressed['Escape'] || justPressed['x'] || justPressed['X']) && state !== 'title') {
       goBackFromMenu();
     }
-  }
-  if (state === 'characterSelect') {
+  } else if (state === 'characterSelect') {
     // ←→ で選択切り替え (上下も受け付ける = 既存メニューの感覚に合わせる)
     let moved = 0;
     if (justPressed['ArrowLeft']  || justPressed['ArrowUp'])   moved = -1;
