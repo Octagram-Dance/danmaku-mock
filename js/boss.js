@@ -551,6 +551,252 @@ function shoot_s4_4(boss, t, speedMul, bulletMul) {
   }
 }
 
+// ── ステージ5: 星界の女神 (ラスボス、10枚スペル) ──
+// フェーズ1 (通常 → 流星): 1〜5
+// フェーズ2 (覚醒 → ラスト): 6〜10
+
+// 5-0 通常攻撃: 全方位星弾、ゆっくり広がる
+function shoot_s5_0(boss, t, speedMul, bulletMul) {
+  if (t % 18 !== 0) return;
+  const arms = Math.max(8, Math.round(12 * bulletMul));
+  const off = t * 0.04;
+  for (let i = 0; i < arms; i++) {
+    const a = off + i * Math.PI * 2 / arms;
+    enemyBullets.push({
+      x: boss.x, y: boss.y,
+      vx: Math.cos(a) * 1.3 * speedMul,
+      vy: Math.sin(a) * 1.3 * speedMul,
+      r: 5, color: '#aaccff'
+    });
+  }
+}
+
+// 5-1 星符「銀河の旋律」: 螺旋連射 (omega + decay で銀河の腕風)
+function shoot_s5_1(boss, t, speedMul, bulletMul) {
+  if (t % 4 !== 0) return;
+  const arms = Math.max(2, Math.round(3 * bulletMul));
+  const off = t * 0.10;
+  for (let i = 0; i < arms; i++) {
+    const a = off + i * Math.PI * 2 / arms;
+    enemyBullets.push({
+      x: boss.x, y: boss.y,
+      vx: Math.cos(a) * 1.6 * speedMul,
+      vy: Math.sin(a) * 1.6 * speedMul,
+      r: 4, color: '#ddccff',
+      omega: 0.025,
+      omegaDecay: 0.985
+    });
+  }
+}
+
+// 5-2 月符「冷たい光輪」: 円形 → 50F後に各弾が4子弾を生成 (2段階)
+function shoot_s5_2(boss, t, speedMul, bulletMul) {
+  if (t % 80 !== 0) return;
+  const N = Math.max(10, Math.round(14 * bulletMul));
+  const childSpeed = 1.0 * speedMul;
+  for (let i = 0; i < N; i++) {
+    const a = i * Math.PI * 2 / N;
+    enemyBullets.push({
+      x: boss.x, y: boss.y,
+      vx: Math.cos(a) * 1.5 * speedMul,
+      vy: Math.sin(a) * 1.5 * speedMul,
+      r: 6, color: '#ccddff',
+      _splitTimer: 50,
+      _splitFn: (parent) => {
+        // 親の進行方向を基準に ±90° と ±180° の 4 子弾を生成
+        const baseA = Math.atan2(parent.vy, parent.vx);
+        for (let k = 0; k < 4; k++) {
+          const angle = baseA + Math.PI / 2 + k * Math.PI / 2;
+          enemyBullets.push({
+            x: parent.x, y: parent.y,
+            vx: Math.cos(angle) * childSpeed,
+            vy: Math.sin(angle) * childSpeed,
+            r: 4, color: '#aabbee'
+          });
+        }
+        explode(parent.x, parent.y, '#ddeeff', 6);
+      }
+    });
+  }
+}
+
+// 5-3 重力「ブラックホール」: 渦巻きながら自機に弱く引き寄せられる
+function shoot_s5_3(boss, t, speedMul, bulletMul) {
+  if (t % 6 !== 0) return;
+  const arms = Math.max(2, Math.round(3 * bulletMul));
+  const off = t * 0.13;
+  for (let i = 0; i < arms; i++) {
+    const a = off + i * Math.PI * 2 / arms;
+    enemyBullets.push({
+      x: boss.x, y: boss.y,
+      vx: Math.cos(a) * 1.4 * speedMul,
+      vy: Math.sin(a) * 1.4 * speedMul,
+      r: 5, color: '#553388',
+      omega: 0.04,
+      omegaDecay: 0.98,
+      _gravityToPlayer: 0.012
+    });
+  }
+}
+
+// 5-4 流星「彗星の雨」: 上空からランダムに高速降下、軌跡付き
+function shoot_s5_4(boss, t, speedMul, bulletMul) {
+  if (t % 4 !== 0) return;
+  const n = Math.max(1, Math.round(2 * bulletMul));
+  for (let i = 0; i < n; i++) {
+    const x = PX + Math.random() * PW;
+    const angleDown = Math.PI / 2 + (Math.random() - 0.5) * 0.5;
+    enemyBullets.push({
+      x, y: PY - 10,
+      vx: Math.cos(angleDown) * 4.5 * speedMul,
+      vy: Math.sin(angleDown) * 4.5 * speedMul,
+      r: 5, color: '#ffeecc',
+      _trail: [], _trailLen: 10
+    });
+  }
+}
+
+// 5-5 真・通常攻撃: 全方位高速白弾、密度倍
+function shoot_s5_5(boss, t, speedMul, bulletMul) {
+  if (t % 10 !== 0) return;
+  const arms = Math.max(12, Math.round(20 * bulletMul));
+  const off = t * 0.03;
+  for (let i = 0; i < arms; i++) {
+    const a = off + i * Math.PI * 2 / arms;
+    enemyBullets.push({
+      x: boss.x, y: boss.y,
+      vx: Math.cos(a) * 2.5 * speedMul,
+      vy: Math.sin(a) * 2.5 * speedMul,
+      r: 4, color: '#ffffff'
+    });
+  }
+}
+
+// 5-6 神星「コスミック・コラプス」: 4辺から中央に収束 → 中央で爆発 → 全方位拡散 (120Fサイクル)
+function shoot_s5_6(boss, t, speedMul, bulletMul) {
+  const phase = t % 120;
+  // 0..40F: 4辺から中央へ収束する弾を毎4Fごとに発射
+  if (phase < 40 && phase % 4 === 0) {
+    const N = Math.max(2, Math.round(3 * bulletMul));
+    for (let i = 0; i < N; i++) {
+      const side = Math.floor(Math.random() * 4);
+      let sx, sy;
+      if (side === 0)      { sx = PX + Math.random() * PW;     sy = PY - 5; }
+      else if (side === 1) { sx = PX + PW + 5;                  sy = PY + Math.random() * PH; }
+      else if (side === 2) { sx = PX + Math.random() * PW;     sy = PY + PH + 5; }
+      else                  { sx = PX - 5;                       sy = PY + Math.random() * PH; }
+      const dx = boss.x - sx, dy = boss.y - sy;
+      const d = Math.hypot(dx, dy);
+      enemyBullets.push({
+        x: sx, y: sy,
+        vx: dx / d * 2.0 * speedMul,
+        vy: dy / d * 2.0 * speedMul,
+        r: 4, color: '#ff44ff',
+        _trail: [], _trailLen: 6
+      });
+    }
+  }
+  // 40F: 中央で爆発、全方位拡散
+  if (phase === 40) {
+    explode(boss.x, boss.y, '#ff44ff', 30);
+    const M = Math.max(20, Math.round(28 * bulletMul));
+    for (let i = 0; i < M; i++) {
+      const a = i * Math.PI * 2 / M;
+      enemyBullets.push({
+        x: boss.x, y: boss.y,
+        vx: Math.cos(a) * 2.6 * speedMul,
+        vy: Math.sin(a) * 2.6 * speedMul,
+        r: 5, color: '#ff88ff'
+      });
+    }
+  }
+}
+
+// 5-7 時空「歪んだ宇宙」: 弾が周期的にワープする
+function shoot_s5_7(boss, t, speedMul, bulletMul) {
+  if (t % 12 !== 0) return;
+  const arms = Math.max(6, Math.round(8 * bulletMul));
+  const off = t * 0.06;
+  for (let i = 0; i < arms; i++) {
+    const a = off + i * Math.PI * 2 / arms;
+    enemyBullets.push({
+      x: boss.x, y: boss.y,
+      vx: Math.cos(a) * 1.5 * speedMul,
+      vy: Math.sin(a) * 1.5 * speedMul,
+      r: 5, color: '#88ffff',
+      _warpInterval: 60 + Math.floor(Math.random() * 40),
+      _warpRange: 60
+    });
+  }
+}
+
+// 5-8 終焉「ヘリオパウズ」: 3波連続の巨大弾幕 (180Fサイクル)
+function shoot_s5_8(boss, t, speedMul, bulletMul) {
+  const phase = t % 180;
+  const N = Math.max(20, Math.round(28 * bulletMul));
+  const wave = (count, off, color, speed) => {
+    for (let i = 0; i < count; i++) {
+      const a = off + i * Math.PI * 2 / count;
+      enemyBullets.push({
+        x: boss.x, y: boss.y,
+        vx: Math.cos(a) * speed * speedMul,
+        vy: Math.sin(a) * speed * speedMul,
+        r: 5, color
+      });
+    }
+  };
+  if (phase === 30) wave(N, 0,            '#ffaa44', 1.7);
+  if (phase === 60) wave(N, Math.PI / N,  '#ffcc66', 1.9);
+  if (phase === 90) wave(N, 0.13,         '#ff8822', 2.1);
+}
+
+// 5-9 ラスト「宇宙の終わり」: 螺旋 + 全方位バースト + 流星雨 + 弱重力
+// このゲーム最難関スペル
+function shoot_s5_9(boss, t, speedMul, bulletMul) {
+  // 高密度螺旋連射 (常時)
+  if (t % 4 === 0) {
+    const arms = Math.max(3, Math.round(4 * bulletMul));
+    const off = t * 0.16;
+    for (let i = 0; i < arms; i++) {
+      const a = off + i * Math.PI * 2 / arms;
+      enemyBullets.push({
+        x: boss.x, y: boss.y,
+        vx: Math.cos(a) * 2.2 * speedMul,
+        vy: Math.sin(a) * 2.2 * speedMul,
+        r: 4, color: '#ffffff',
+        _gravityToPlayer: 0.005
+      });
+    }
+  }
+  // 90F毎に高速全方位バースト
+  if (t > 0 && t % 90 === 0) {
+    const N = Math.max(16, Math.round(22 * bulletMul));
+    for (let i = 0; i < N; i++) {
+      const a = i * Math.PI * 2 / N;
+      enemyBullets.push({
+        x: boss.x, y: boss.y,
+        vx: Math.cos(a) * 3.5 * speedMul,
+        vy: Math.sin(a) * 3.5 * speedMul,
+        r: 5, color: '#ddccff'
+      });
+    }
+  }
+  // 180F毎に上空からの流星雨
+  if (t > 0 && t % 180 === 60) {
+    for (let i = 0; i < 8; i++) {
+      const x = PX + Math.random() * PW;
+      const angleDown = Math.PI / 2 + (Math.random() - 0.5) * 0.5;
+      enemyBullets.push({
+        x, y: PY - 10,
+        vx: Math.cos(angleDown) * 4.5 * speedMul,
+        vy: Math.sin(angleDown) * 4.5 * speedMul,
+        r: 5, color: '#ffeecc',
+        _trail: [], _trailLen: 10
+      });
+    }
+  }
+}
+
 // ─────────────────────────────────────────────────────────
 // ステージ別データ
 // ─────────────────────────────────────────────────────────
@@ -583,10 +829,23 @@ const SPELL_CARDS_BY_STAGE = {
     { name: '稲妻「ジグザグ・ライトニング」', color: '#aabbff', hp: 0.20, shoot: shoot_s4_2 },
     { name: '雷神「天鼓の咆哮」',           color: '#ffcc44', hp: 0.20, shoot: shoot_s4_3 },
     { name: '終焉「神霹靂」',              color: '#ffffff', hp: 0.24, shoot: shoot_s4_4 }
+  ],
+  // ステージ5 (ラスボス): 10枚スペル、フェーズ1 (5枚) + フェーズ2 (5枚)、HP合計 1.0
+  5: [
+    // ── フェーズ1 ──
+    { name: '通常攻撃',                       color: '#aaccff', hp: 0.05, shoot: shoot_s5_0 },
+    { name: '星符「銀河の旋律」',              color: '#ddccff', hp: 0.10, shoot: shoot_s5_1 },
+    { name: '月符「冷たい光輪」',              color: '#ccddff', hp: 0.10, shoot: shoot_s5_2 },
+    { name: '重力「ブラックホール」',          color: '#553388', hp: 0.12, shoot: shoot_s5_3 },
+    { name: '流星「彗星の雨」',                color: '#ffeecc', hp: 0.13, shoot: shoot_s5_4 },
+    // ── フェーズ2 (覚醒後) ──
+    { name: '真・通常攻撃',                    color: '#ffffff', hp: 0.08, shoot: shoot_s5_5 },
+    { name: '神星「コスミック・コラプス」',     color: '#ff44ff', hp: 0.12, shoot: shoot_s5_6 },
+    { name: '時空「歪んだ宇宙」',              color: '#88ffff', hp: 0.10, shoot: shoot_s5_7 },
+    { name: '終焉「ヘリオパウズ」',            color: '#ffaa44', hp: 0.10, shoot: shoot_s5_8 },
+    { name: 'ラスト「宇宙の終わり」',           color: '#ffffff', hp: 0.10, shoot: shoot_s5_9 }
   ]
 };
-// ステージ 5 のプレースホルダ (本実装まではステージ 3 を流用)
-SPELL_CARDS_BY_STAGE[5] = SPELL_CARDS_BY_STAGE[3];
 
 // 後方互換: 旧 SPELL_CARDS への参照は SPELL_CARDS_BY_STAGE[1] を指す。
 // 新規コードは可能なら boss.spellCards を使うこと。
@@ -598,7 +857,7 @@ const BOSS_NAMES = {
   2: { ja: '雪舞',     en: 'Maiden of the Winter Frost' },
   3: { ja: '紅葉姫',   en: 'Princess of Autumn Leaves' },
   4: { ja: '神鳴',     en: 'Mistress of Roaring Thunder' },
-  5: { ja: '（準備中）', en: 'Coming Soon' }
+  5: { ja: '星詠',     en: 'The Cosmic Sovereign' }
 };
 
 // 移動パターン (ステージ別の動き方)
@@ -609,10 +868,9 @@ const BOSS_MOVE_BY_STAGE = {
   1: { cycle: 90,  lerp: 0.03,  teleportInterval: 300 }, // 紫: 中央付近、5秒ごとにテレポート
   2: { cycle: 180, lerp: 0.015, teleportInterval: 0   }, // 氷: 浮遊・ゆったり
   3: { cycle: 60,  lerp: 0.05,  teleportInterval: 0   }, // 紅葉: 高速・広範囲
-  4: { cycle: 80,  lerp: 0.04,  teleportInterval: 240 }  // 雷: 4秒ごとに雷鳴ワープ
+  4: { cycle: 80,  lerp: 0.04,  teleportInterval: 240 }, // 雷: 4秒ごとに雷鳴ワープ
+  5: { cycle: 150, lerp: 0.025, teleportInterval: 360 }  // 星界: 荘厳・低速、6秒ごとに静かなワープ
 };
-// ステージ 5 のプレースホルダ (本実装まではステージ 3 と同じ動き)
-BOSS_MOVE_BY_STAGE[5] = BOSS_MOVE_BY_STAGE[3];
 
 // ─────────────────────────────────────────────────────────
 // ボス出現カットインを開始: state='bossIntro' に遷移し、画面の弾をフェードアウトに切替。
@@ -620,14 +878,16 @@ BOSS_MOVE_BY_STAGE[5] = BOSS_MOVE_BY_STAGE[3];
 // ─────────────────────────────────────────────────────────
 function startBossIntro() {
   state = 'bossIntro';
-  bossIntroTimer = 180;
+  // ステージ5 のラスボスは特別カットイン (240F)、それ以外は通常 (180F)
+  bossIntroTimer = (selectedStage === 5) ? 240 : 180;
   enemyBullets.forEach(b => { b.fading = true; });
 }
 
 function spawnBoss() {
   bossActive = true;
   const dm = DIFF_HP[selectedDifficulty];
-  const totalHp = Math.floor(800 * dm);
+  // ラスボス (ステージ5) は 2 倍 HP
+  const totalHp = Math.floor((selectedStage === 5 ? 1600 : 800) * dm);
   const cards = SPELL_CARDS_BY_STAGE[selectedStage] || SPELL_CARDS_BY_STAGE[1];
   const move = BOSS_MOVE_BY_STAGE[selectedStage] || BOSS_MOVE_BY_STAGE[1];
   const naming = BOSS_NAMES[selectedStage] || BOSS_NAMES[1];
@@ -657,7 +917,9 @@ function spawnBoss() {
     // ワープ演出強化用
     nextWarpX: 0,
     nextWarpY: 0,
-    afterimages: []  // { x, y, life, maxLife } の配列
+    afterimages: [],  // { x, y, life, maxLife } の配列
+    // ラスボス専用: フェーズ2 突入後に true、オーラ強化に使う
+    phase2: false
   };
 }
 
@@ -674,7 +936,27 @@ function nextSpellCard() {
   boss.invulnAfterSpell = 60;
   enemyBullets.forEach(b => { b.fading = true; });
   score += 30000;
-  startSpellCutin();
+  // ラスボスのフェーズ2 (カード 5 → 6) 突入時は専用カットインに置き換え
+  if (selectedStage === 5 && boss.pattern === 5) {
+    boss.phase2 = true;
+    boss.moveLerp = 0.04; // 動きが少し激しくなる
+    startPhase2Intro();
+  } else {
+    startSpellCutin();
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// フェーズ2 突入カットイン (ラスボス専用、state='phase2Intro')
+// 150F 構成:
+//   0-30  : 暗転 + ホワイトフラッシュ (一瞬白)
+//  30-120 : 「Phase 2: Awakened」表示
+// 120-150 : フェードアウト
+// ─────────────────────────────────────────────────────────
+function startPhase2Intro() {
+  state = 'phase2Intro';
+  phase2IntroTimer = 150;
+  hitStopFrames = 0;
 }
 
 // スペルカード突入カットインを開始 (state='spellCutin'、90F)。
@@ -791,6 +1073,8 @@ function drawLightningZigzag(x1, y1, x2, y2, color, width, segments, jitter) {
 
 function drawBoss() {
   if (!boss) return;
+  // ラスボス撃破演出中は drawFinalBossDeath が画像を担当するので drawBoss は描画しない。
+  if (state === 'finalBossDeath') return;
   // ステージ別ワープ色 (RGB) — テレポート系視覚効果に共通で使う
   const warpRgb = selectedStage === 4 ? '255, 220, 120' : '170, 102, 255';
   const warpInnerRgb = selectedStage === 4 ? '255, 250, 220' : '220, 180, 255';
@@ -854,13 +1138,47 @@ function drawBoss() {
     ctx.arc(boss.x, boss.y, auraR, 0, Math.PI * 2);
     ctx.fill();
   }
-  // 外側の柔らかい発光層 (ゆっくり脈動) — ステージ4は黄白に切り替え
+  // ── ステージ5 フェーズ2: 強烈な多色オーラ (脈動+回転)、最も外側のレイヤー ──
+  if (selectedStage === 5 && boss.phase2) {
+    const ph2Pulse = (Math.sin(frame * 0.08) + 1) / 2;
+    const phR = boss.r * 4.5 + ph2Pulse * 18;
+    const phGrad = ctx.createRadialGradient(boss.x, boss.y, boss.r * 1.2, boss.x, boss.y, phR);
+    phGrad.addColorStop(0, 'rgba(255, 240, 255, 0.45)');
+    phGrad.addColorStop(0.4, 'rgba(220, 180, 255, 0.22)');
+    phGrad.addColorStop(0.75, 'rgba(255, 100, 220, 0.10)');
+    phGrad.addColorStop(1, 'rgba(180, 80, 255, 0)');
+    ctx.fillStyle = phGrad;
+    ctx.beginPath();
+    ctx.arc(boss.x, boss.y, phR, 0, Math.PI * 2);
+    ctx.fill();
+    // 回転する光の筋 (8方向)
+    ctx.save();
+    ctx.translate(boss.x, boss.y);
+    ctx.rotate(frame * 0.03);
+    ctx.strokeStyle = `rgba(255, 220, 255, ${0.35 + ph2Pulse * 0.25})`;
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 8; i++) {
+      ctx.save();
+      ctx.rotate(i * Math.PI / 4);
+      ctx.beginPath();
+      ctx.moveTo(boss.r * 1.3, 0);
+      ctx.lineTo(boss.r * 1.3 + 36 + ph2Pulse * 12, 0);
+      ctx.stroke();
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+  // 外側の柔らかい発光層 (ゆっくり脈動) — ステージ別に色切替
   const softR = boss.r * 2.6 + Math.sin(frame*0.05)*6;
   const softGrad = ctx.createRadialGradient(boss.x, boss.y, boss.r * 0.8, boss.x, boss.y, softR);
   if (selectedStage === 4) {
     softGrad.addColorStop(0, 'rgba(255, 240, 180, 0.30)');
     softGrad.addColorStop(0.6, 'rgba(255, 220, 120, 0.14)');
     softGrad.addColorStop(1, 'rgba(255, 220, 120, 0)');
+  } else if (selectedStage === 5) {
+    softGrad.addColorStop(0, 'rgba(220, 220, 255, 0.32)');
+    softGrad.addColorStop(0.6, 'rgba(180, 180, 255, 0.14)');
+    softGrad.addColorStop(1, 'rgba(180, 180, 255, 0)');
   } else {
     softGrad.addColorStop(0, 'rgba(255, 200, 230, 0.25)');
     softGrad.addColorStop(0.6, 'rgba(255, 150, 210, 0.12)');
@@ -870,12 +1188,15 @@ function drawBoss() {
   ctx.beginPath();
   ctx.arc(boss.x, boss.y, softR, 0, Math.PI*2);
   ctx.fill();
-  // 内側オーラ — ステージ4は黄、それ以外はピンク
+  // 内側オーラ — ステージ別
   const auraR = boss.r + 8 + Math.sin(frame*0.1)*4;
   const grad2 = ctx.createRadialGradient(boss.x, boss.y, boss.r, boss.x, boss.y, auraR);
   if (selectedStage === 4) {
     grad2.addColorStop(0, 'rgba(255, 230, 120, 0.65)');
     grad2.addColorStop(1, 'rgba(255, 230, 120, 0)');
+  } else if (selectedStage === 5) {
+    grad2.addColorStop(0, 'rgba(230, 220, 255, 0.65)');
+    grad2.addColorStop(1, 'rgba(230, 220, 255, 0)');
   } else {
     grad2.addColorStop(0, 'rgba(255,100,200,0.6)');
     grad2.addColorStop(1, 'rgba(255,100,200,0)');
@@ -945,6 +1266,8 @@ function drawBoss() {
 
 function drawBossHpBar() {
   if (!boss) return;
+  // 撃破演出中は HP バーを隠す
+  if (state === 'finalBossDeath') return;
   const w = PW - 40;
   const card = boss.spellCards[boss.pattern];
   // 現スペルカードのHP範囲内での残量
@@ -1092,6 +1415,8 @@ function drawSpellAnnounce() {
 // ─────────────────────────────────────────────────────────
 function drawBossIntro() {
   if (state !== 'bossIntro') return;
+  // ラスボスは専用の長尺カットインへ
+  if (selectedStage === 5) { drawFinalBossIntro(); return; }
   const TOTAL = 180;
   const t = TOTAL - bossIntroTimer;
 
@@ -1341,5 +1666,269 @@ function drawSpellCutin() {
   ctx.fillText('(Z でスキップ)', cardX + cardW/2, cardY + cardH - 18);
 
   ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+// ─────────────────────────────────────────────────────────
+// ラスボス出現カットイン (state='bossIntro' && selectedStage === 5、240F)
+// 構成:
+//   0-30   : 完全暗転
+//   0-90   : 中央から白い光が放射状に広がる粒子 (3F毎にスポーン)
+//   30-150 : ボス画像フェードイン + ゆっくり拡大 (80→240px)
+//   60-210 : ボス名 (左から) + 英名 (右から) スライドイン
+//   90-220 : "!! THE FINAL BOSS !!" 赤金色で点滅
+//  220-240 : ホールド (フェードは短め)
+// ─────────────────────────────────────────────────────────
+function drawFinalBossIntro() {
+  const TOTAL = 240;
+  const t = TOTAL - bossIntroTimer;
+  const naming = BOSS_NAMES[5];
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(PX, PY, PW, PH);
+  ctx.clip();
+
+  // 1. 完全暗転 (0-30 でフェードイン、その後ホールド、220-240 でほんの少しフェード)
+  let bgAlpha;
+  if (t < 30) bgAlpha = (t / 30);
+  else if (t < 220) bgAlpha = 1;
+  else bgAlpha = (TOTAL - t) / 20;
+  ctx.fillStyle = `rgba(0, 0, 0, ${bgAlpha})`;
+  ctx.fillRect(PX, PY, PW, PH);
+
+  // 2. 中央から放射状の白い粒子 (3F毎、t<90 の間)
+  if (t > 0 && t < 90 && t % 3 === 0) {
+    const cx = PX + PW / 2, cy = PY + PH * 0.5;
+    for (let i = 0; i < 8; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const sp = 4 + Math.random() * 4;
+      particles.push({
+        x: cx, y: cy,
+        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        life: 50,
+        color: i % 2 === 0 ? '#ffffff' : '#ddccff'
+      });
+    }
+  }
+
+  // 3. ボス画像 (30-150 でフェードイン+拡大、150 以降はホールド、220+ で軽くフェード)
+  if (t >= 30) {
+    let scaleT, alpha;
+    if (t < 150) {
+      const raw = (t - 30) / 120;
+      scaleT = raw;                     // 線形拡大
+      alpha = Math.min(1, raw * 1.2);   // フェード少し早め
+    } else if (t < 220) {
+      scaleT = 1;
+      alpha = 1;
+    } else {
+      scaleT = 1;
+      alpha = (TOTAL - t) / 20;
+    }
+    const size = 80 + (240 - 80) * scaleT;
+    const bossX = PX + PW / 2;
+    const bossY = PY + PH * 0.5;
+    ctx.globalAlpha = alpha;
+    if (!drawImageCentered('boss_stage5', bossX, bossY, size)) {
+      ctx.fillStyle = '#ddccff';
+      ctx.beginPath();
+      ctx.arc(bossX, bossY, size * 0.3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // 4. ボス名 (左から) + 英名 (右から) スライドイン
+  if (t >= 60 && t < 220) {
+    const fadeT = Math.min(1, (t - 60) / 30);
+    // 和名: 上部、左からスライド
+    const slideOffJa = -120 * (1 - fadeT);
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 56px "Hiragino Mincho ProN", "Yu Mincho", serif';
+    ctx.shadowBlur = 22;
+    ctx.shadowColor = '#aabbff';
+    ctx.fillStyle = `rgba(245, 240, 255, ${fadeT})`;
+    ctx.fillText(naming.ja, PX + PW / 2 + slideOffJa, PY + 110);
+    // 英名: 下部、右からスライド
+    const slideOffEn = 120 * (1 - fadeT);
+    ctx.font = 'bold 18px sans-serif';
+    ctx.shadowBlur = 10;
+    ctx.fillStyle = `rgba(220, 220, 255, ${fadeT * 0.9})`;
+    ctx.fillText(`— ${naming.en} —`, PX + PW / 2 + slideOffEn, PY + 138);
+    ctx.shadowBlur = 0;
+  }
+
+  // 5. "!! THE FINAL BOSS !!" 赤金色で点滅
+  if (t >= 90 && t < 220) {
+    const blink = Math.floor(t / 8) % 2 === 0;
+    const bannerY = PY + PH - 90;
+    ctx.fillStyle = `rgba(180, 30, 50, ${blink ? 0.55 : 0.35})`;
+    ctx.fillRect(PX, bannerY - 26, PW, 52);
+    ctx.strokeStyle = `rgba(255, 200, 80, ${blink ? 0.95 : 0.7})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(PX, bannerY - 26); ctx.lineTo(PX + PW, bannerY - 26);
+    ctx.moveTo(PX, bannerY + 26); ctx.lineTo(PX + PW, bannerY + 26);
+    ctx.stroke();
+    ctx.fillStyle = blink ? '#fff8d8' : '#ffcc44';
+    ctx.font = 'bold 28px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.shadowBlur = 14;
+    ctx.shadowColor = '#ff4422';
+    ctx.fillText('!! THE FINAL BOSS !!', PX + PW / 2, bannerY + 8);
+    ctx.shadowBlur = 0;
+  }
+
+  // 6. スキップヒント
+  if (t >= 60 && t < 230) {
+    ctx.textAlign = 'center';
+    ctx.font = '11px sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.fillText('(Z でスキップ)', PX + PW/2, PY + PH - 14);
+  }
+
+  ctx.restore();
+}
+
+// ─────────────────────────────────────────────────────────
+// フェーズ2 突入カットイン描画 (state='phase2Intro')
+// ─────────────────────────────────────────────────────────
+function drawPhase2Intro() {
+  if (state !== 'phase2Intro' || !boss) return;
+  const TOTAL = 150;
+  const t = TOTAL - phase2IntroTimer;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(PX, PY, PW, PH);
+  ctx.clip();
+
+  // 1. 短い真白フラッシュ (0-30) → 暗転キープ (30-120) → フェード (120-150)
+  if (t < 30) {
+    const fa = (30 - t) / 30;        // 1→0
+    ctx.fillStyle = `rgba(255, 255, 255, ${fa * 0.85})`;
+    ctx.fillRect(PX, PY, PW, PH);
+  }
+  let darkA;
+  if (t < 30) darkA = t / 30 * 0.55;
+  else if (t < 120) darkA = 0.55;
+  else darkA = 0.55 * (TOTAL - t) / 30;
+  ctx.fillStyle = `rgba(20, 0, 30, ${darkA})`;
+  ctx.fillRect(PX, PY, PW, PH);
+
+  // 2. "Phase 2: Awakened" 表示 (30-120)
+  if (t >= 25 && t < 130) {
+    const fadeT = Math.min(1, (t - 25) / 18);
+    const outT = t > 110 ? Math.max(0, (130 - t) / 20) : 1;
+    const alpha = fadeT * outT;
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 16px sans-serif';
+    ctx.fillStyle = `rgba(255, 220, 255, ${alpha * 0.9})`;
+    ctx.fillText('— Phase 2 —', PX + PW / 2, PY + PH / 2 - 30);
+    ctx.font = 'bold 48px "Hiragino Mincho ProN", serif';
+    ctx.shadowBlur = 18;
+    ctx.shadowColor = '#ff44ff';
+    ctx.fillStyle = `rgba(255, 245, 255, ${alpha})`;
+    ctx.fillText('Awakened', PX + PW / 2, PY + PH / 2 + 18);
+    ctx.shadowBlur = 0;
+    // サブ
+    ctx.font = 'bold 14px "Hiragino Mincho ProN", serif';
+    ctx.fillStyle = `rgba(220, 200, 255, ${alpha * 0.85})`;
+    ctx.fillText('星詠、覚醒', PX + PW / 2, PY + PH / 2 + 44);
+  }
+
+  // 3. スキップヒント
+  if (t >= 30 && t < 140) {
+    ctx.textAlign = 'center';
+    ctx.font = '11px sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.fillText('(Z でスキップ)', PX + PW / 2, PY + PH - 14);
+  }
+
+  ctx.restore();
+}
+
+// ─────────────────────────────────────────────────────────
+// ラスボス撃破: 専用の死亡演出 → allClear へ。
+// state='finalBossDeath' に遷移し、180F の演出後に allClear へ。
+// 演出中は boss.x/y を保持して画像を残し、徐々にフェードアウトさせる。
+// ─────────────────────────────────────────────────────────
+function startFinalBossDeath() {
+  state = 'finalBossDeath';
+  finalBossDeathTimer = 180;
+  hitStopFrames = 60; // 1秒の完全停止
+  bombFlash = 90;     // ボムフラッシュより強く長い白フラッシュ
+  // 多色パーティクル爆散 (200個)
+  const colors = ['#ffffff', '#ddccff', '#ff44ff', '#aabbee', '#ffcc44', '#88ffff'];
+  for (let i = 0; i < 200; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const s = 1 + Math.random() * 6;
+    particles.push({
+      x: boss.x, y: boss.y,
+      vx: Math.cos(a) * s, vy: Math.sin(a) * s,
+      life: 90 + Math.random() * 60,
+      color: colors[i % colors.length]
+    });
+  }
+  // 残しておく: drawFinalBossDeath で boss 画像をフェードアウト描画したい
+  bossActive = false;
+  stageCleared = true;
+}
+
+function drawFinalBossDeath() {
+  if (state !== 'finalBossDeath') return;
+  const TOTAL = 180;
+  const t = TOTAL - finalBossDeathTimer;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(PX, PY, PW, PH);
+  ctx.clip();
+
+  // 強い白フラッシュ (0-60 で 1→0、60-180 はホールドで薄い暗転)
+  if (t < 60) {
+    const fa = (60 - t) / 60;
+    ctx.fillStyle = `rgba(255, 255, 255, ${fa * 0.85})`;
+    ctx.fillRect(PX, PY, PW, PH);
+  }
+  if (t >= 30) {
+    const dimT = Math.min(1, (t - 30) / 60);
+    ctx.fillStyle = `rgba(0, 0, 0, ${dimT * 0.55})`;
+    ctx.fillRect(PX, PY, PW, PH);
+  }
+
+  // ボス画像を残しつつフェードアウト + 拡大
+  if (boss) {
+    const fade = Math.max(0, 1 - t / 120);
+    const scale = 1 + t / 360;
+    ctx.globalAlpha = fade;
+    if (!drawImageCentered('boss_stage5', boss.x, boss.y, 88 * scale)) {
+      ctx.fillStyle = '#ddccff';
+      ctx.beginPath();
+      ctx.arc(boss.x, boss.y, boss.r * scale, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // 中央テロップ "勝利" + サブ "宇宙の終焉"
+  if (t >= 90 && t < TOTAL) {
+    const fadeT = Math.min(1, (t - 90) / 30);
+    const outT = t > 160 ? Math.max(0, (TOTAL - t) / 20) : 1;
+    const alpha = fadeT * outT;
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 56px "Hiragino Mincho ProN", serif';
+    ctx.shadowBlur = 22;
+    ctx.shadowColor = '#ffcc44';
+    ctx.fillStyle = `rgba(255, 245, 200, ${alpha})`;
+    ctx.fillText('勝利', PX + PW / 2, PY + PH / 2 - 10);
+    ctx.font = 'bold 18px "Hiragino Mincho ProN", serif';
+    ctx.shadowBlur = 12;
+    ctx.fillStyle = `rgba(255, 230, 200, ${alpha * 0.9})`;
+    ctx.fillText('— Cosmos Conquered —', PX + PW / 2, PY + PH / 2 + 26);
+    ctx.shadowBlur = 0;
+  }
+
   ctx.restore();
 }

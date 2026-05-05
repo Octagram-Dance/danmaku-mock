@@ -46,6 +46,9 @@ let transitionTimer; // ステージ遷移演出の残フレーム (>0 中は st
 let bossIntroTimer; // ボス出現カットインの残フレーム (>0 中は state='bossIntro')
 let spellCutinTimer; // スペルカード突入カットインの残フレーム (>0 中は state='spellCutin')
 let summaryTimer; // クリア集計画面の経過フレーム (state='clear' 突入で 0 リセット)
+let finalStageIntroTimer; // 最終ステージ導入演出 (state='finalStageIntro') の残フレーム (360F)
+let phase2IntroTimer;     // フェーズ2 突入カットイン (state='phase2Intro') の残フレーム (150F)
+let finalBossDeathTimer;  // ラスボス撃破演出 (state='finalBossDeath') の残フレーム (180F)
 // ステージ集計用 (startGame で 0、nextStage で更新)
 let stageStartScore;
 let stageStartGraze;
@@ -70,9 +73,9 @@ const DIFF_SPEED  = { Easy: 0.75, Normal: 0.85, Hard: 1.0 }; // 弾速倍率
 const DIFF_HP     = { Easy: 0.6, Normal: 1.0, Hard: 1.5 };   // ボスHP倍率
 
 // ステージ数の枠 (MAX) と現在実装済みのステージ数 (IMPLEMENTED)。
-// 5 を実装したら IMPLEMENTED_STAGES を増やすだけで全クリア地点も自動更新される。
+// 全 5 ステージ実装済み。ステージ 5 (星詠) はラスボス、撃破で allClear へ。
 const MAX_STAGES = 5;
-const IMPLEMENTED_STAGES = 4;
+const IMPLEMENTED_STAGES = 5;
 
 function startGame(stage, fromBossOnly) {
   selectedStage = stage;
@@ -101,6 +104,9 @@ function startGame(stage, fromBossOnly) {
   bossIntroTimer = 0;
   spellCutinTimer = 0;
   summaryTimer = 0;
+  finalStageIntroTimer = 0;
+  phase2IntroTimer = 0;
+  finalBossDeathTimer = 0;
   stageStartScore = 0;
   stageStartGraze = 0;
   bombsUsed = 0;
@@ -111,7 +117,8 @@ function startGame(stage, fromBossOnly) {
   stageEnemiesKilled = 0;
   stageEnemiesSpawned = 0;
   stageEnemiesPassed = 0;
-  stageEnemyTotal = 40; // 40体
+  // ステージ5 (ラスボス) は雑魚なし → 0 体クリアで即ボス出現条件を満たす
+  stageEnemyTotal = (stage === 5) ? 0 : 40;
   boss = null;
   bossActive = false;
   stageCleared = false;
@@ -124,6 +131,10 @@ function startGame(stage, fromBossOnly) {
     stageEnemiesSpawned = stageEnemyTotal;
     stageEnemiesKilled = stageEnemyTotal;
     startBossIntro();  // bossIntro 経由でボスを呼び出す (state='bossIntro' になる)
+  } else if (stage === 5) {
+    // ステージ5: 6秒の導入演出 → ラスボスカットインへ
+    state = 'finalStageIntro';
+    finalStageIntroTimer = 360;
   } else {
     state = 'play';
   }
@@ -161,18 +172,28 @@ function nextStage() {
   stageEnemiesKilled = 0;
   stageEnemiesSpawned = 0;
   stageEnemiesPassed = 0;
+  // ステージ5 は雑魚 0 体に切替
+  stageEnemyTotal = (selectedStage === 5) ? 0 : 40;
   boss = null;
   bossActive = false;
   stageCleared = false;
   collectPhase = false;
   collectPhaseTimer = 0;
   spawnTimer = 60;
-  // 中ボス: ステージごとに再出現
+  // 中ボス: ステージごとに再出現 (ステージ5 は中ボスなし、stageEnemyTotal=0 で natural にスポーン条件外)
   midBoss = null;
   midBossActive = false;
   midBossSpawned = false;
   midBossIntroTimer = 0;
-  state = 'play';
+  finalStageIntroTimer = 0;
+  phase2IntroTimer = 0;
+  finalBossDeathTimer = 0;
+  if (selectedStage === 5) {
+    state = 'finalStageIntro';
+    finalStageIntroTimer = 360;
+  } else {
+    state = 'play';
+  }
 }
 
 function selectMenu() {
@@ -363,7 +384,13 @@ function update() {
     // transition 中は入力受付なし、自動進行
     transitionTimer--;
     if (transitionTimer <= 0) {
-      state = 'play';
+      if (selectedStage === 5) {
+        // ステージ5 はラスボス前の 6 秒導入演出へ
+        state = 'finalStageIntro';
+        finalStageIntroTimer = 360;
+      } else {
+        state = 'play';
+      }
     }
   }
   if (state === 'bossIntro') {
@@ -441,6 +468,70 @@ function update() {
     if (bombFlash > 0) bombFlash--;
     if (midBossIntroTimer <= 0) {
       state = 'play';
+    }
+  }
+  if (state === 'finalStageIntro') {
+    // ラスボス前の 6 秒導入: 自機は移動・弾発射可、敵なし、被弾なし。
+    // タイマー満了で startBossIntro() (state='bossIntro' は 240F 化される) へ。
+    if (justPressed['p'] || justPressed['P'] || justPressed['Escape']) {
+      state = 'paused'; pauseMenuIndex = 0;
+      for (const k in justPressed) justPressed[k] = false;
+      return;
+    }
+    finalStageIntroTimer--;
+    updatePlayer();
+    firePlayerBullets();
+    updatePlayerBullets();
+    updateHomingBullets();
+    updateScreenFlash();
+    updateParticles();
+    updateFloatTexts();
+    if (bombFlash > 0) bombFlash--;
+    if (finalStageIntroTimer <= 0) {
+      // 弾を全クリアしてからボス出現カットインへ
+      enemyBullets = [];
+      startBossIntro();
+    }
+  }
+  if (state === 'phase2Intro') {
+    // フェーズ2 突入カットイン: hitstop 同等、入力受付はスキップのみ。
+    if (justPressed['z'] || justPressed['Z'] || justPressed['Enter'] || justPressed[' ']) {
+      phase2IntroTimer = 0;
+    }
+    phase2IntroTimer--;
+    fadeOutEnemyBullets();
+    updateScreenFlash();
+    updateParticles();
+    updateFloatTexts();
+    if (bombFlash > 0) bombFlash--;
+    if (phase2IntroTimer <= 0) {
+      state = 'play';
+    }
+  }
+  if (state === 'finalBossDeath') {
+    // ラスボス撃破演出: 入力一切無視、180F 後に allClear へ。
+    // hitStopFrames が startFinalBossDeath で 60 セットされているので最初の 1 秒は完全停止。
+    if (hitStopFrames > 0) {
+      hitStopFrames--;
+      updateScreenFlash();
+      updateParticles();
+      updateFloatTexts();
+      if (bombFlash > 0) bombFlash--;
+      finalBossDeathTimer--;
+      if (finalBossDeathTimer <= 0) {
+        state = 'allClear';
+      }
+      for (const k in justPressed) justPressed[k] = false;
+      return;
+    }
+    finalBossDeathTimer--;
+    updateScreenFlash();
+    updateParticles();
+    updateFloatTexts();
+    if (bombFlash > 0) bombFlash--;
+    if (finalBossDeathTimer <= 0) {
+      boss = null; // 描画レイヤーから外す (drawAllClear が背景画像を担当)
+      state = 'allClear';
     }
   }
   if (state === 'clear') {

@@ -56,17 +56,26 @@ function checkPlayerBulletHits() {
         b._consumed = true;
         // ボス完全撃破
         if (e === boss && boss.hp <= 0 && boss.pattern >= boss.spellCards.length - 1) {
-          explode(boss.x, boss.y, '#ffccff', 60);
-          score += 50000;
-          spawnScoreText(boss.x, boss.y, '+50000', '#ffcc44');
-          hitStopFrames = 6;
-          for (let i = 0; i < 8; i++) spawnItem(boss.x + (Math.random()-0.5)*40, boss.y, 'power');
-          for (let i = 0; i < 5; i++) spawnItem(boss.x + (Math.random()-0.5)*40, boss.y, 'life');
-          boss = null;
-          bossActive = false;
-          stageCleared = true;
-          collectPhase = true;
-          collectPhaseTimer = 240;
+          if (selectedStage === 5) {
+            // ラスボス: 専用エンディング演出 (boss 変数は death 描画のため残す)
+            score += 100000;
+            spawnScoreText(boss.x, boss.y, '+100000', '#ffcc44');
+            saveHiScore(selectedDifficulty, score);
+            saveGrazeRecord(selectedDifficulty, grazeCount);
+            startFinalBossDeath();
+          } else {
+            explode(boss.x, boss.y, '#ffccff', 60);
+            score += 50000;
+            spawnScoreText(boss.x, boss.y, '+50000', '#ffcc44');
+            hitStopFrames = 6;
+            for (let i = 0; i < 8; i++) spawnItem(boss.x + (Math.random()-0.5)*40, boss.y, 'power');
+            for (let i = 0; i < 5; i++) spawnItem(boss.x + (Math.random()-0.5)*40, boss.y, 'life');
+            boss = null;
+            bossActive = false;
+            stageCleared = true;
+            collectPhase = true;
+            collectPhaseTimer = 240;
+          }
         } else if (e === midBoss && midBoss.hp <= 0) {
           killMidBoss();
         } else if (e !== boss && e !== midBoss && e.hp <= 0) {
@@ -83,11 +92,53 @@ function moveAndFilterEnemyBullets() {
   enemyBullets = enemyBullets.filter(b => {
     // グレイズ閃光のフェードは凍結状態とは独立して常に減衰
     if (b._grazeFlash > 0) b._grazeFlash--;
+
+    // _splitTimer: タイマー満了で _splitFn(b) を呼んで子弾を生成、親弾は消滅。
+    // ステージ5「冷たい光輪」のような 2 段階弾幕用。
+    if (b._splitTimer !== undefined) {
+      b._splitTimer--;
+      if (b._splitTimer <= 0) {
+        if (b._splitFn) b._splitFn(b);
+        return false;
+      }
+    }
+
     // 凍結中: 移動しない (画面端判定のみ通過)
     if (b.freezeTimer > 0) {
       b.freezeTimer--;
       return true;
     }
+
+    // _warpInterval: 一定間隔でランダム転移 (ステージ5「歪んだ宇宙」用)
+    // 転移前後にパーティクルでフラッシュ。
+    if (b._warpInterval > 0) {
+      b._warpTimer = (b._warpTimer || 0) + 1;
+      if (b._warpTimer >= b._warpInterval) {
+        b._warpTimer = 0;
+        const r = b._warpRange || 80;
+        for (let i = 0; i < 4; i++) {
+          const a = Math.random() * Math.PI * 2;
+          particles.push({ x: b.x, y: b.y, vx: Math.cos(a)*1.5, vy: Math.sin(a)*1.5, life: 18, color: b.color });
+        }
+        b.x += (Math.random() - 0.5) * r * 2;
+        b.y += (Math.random() - 0.5) * r * 2;
+        for (let i = 0; i < 4; i++) {
+          const a = Math.random() * Math.PI * 2;
+          particles.push({ x: b.x, y: b.y, vx: Math.cos(a)*1.5, vy: Math.sin(a)*1.5, life: 18, color: b.color });
+        }
+      }
+    }
+
+    // _gravityToPlayer: 自機方向への弱い重力加速 (ステージ5「ブラックホール」用)
+    if (b._gravityToPlayer) {
+      const dx = player.x - b.x, dy = player.y - b.y;
+      const d = Math.hypot(dx, dy);
+      if (d > 1) {
+        b.vx += (dx / d) * b._gravityToPlayer;
+        b.vy += (dy / d) * b._gravityToPlayer;
+      }
+    }
+
     // 弾自体が回転: vx,vy を omega ラジアンずつ回す (葉舞・渦巻き用)
     // omegaDecay 指定時は毎F omega *= omegaDecay で減衰 (永続軌道になって弾がボス周りに閉じ込められるのを防ぐ)
     if (b.omega) {
@@ -101,6 +152,13 @@ function moveAndFilterEnemyBullets() {
         if (Math.abs(b.omega) < 0.0001) b.omega = 0;
       }
     }
+
+    // _trail: 過去位置を最新 _trailLen 個保持 (ステージ5「彗星の雨」用)
+    if (b._trail) {
+      b._trail.unshift({ x: b.x, y: b.y });
+      if (b._trail.length > (b._trailLen || 8)) b._trail.pop();
+    }
+
     b.x += b.vx; b.y += b.vy;
     return b.x > PX-10 && b.x < PX+PW+10 && b.y > PY-10 && b.y < PY+PH+10;
   });
@@ -173,6 +231,24 @@ function drawEnemyBullets() {
   ctx.shadowBlur = 6;
   enemyBullets.forEach(b => {
     if (b.fading) ctx.globalAlpha = Math.max(0, 1 - (b.fadeTimer || 0) / 30);
+    // _trail: 弾の過去位置を結ぶ淡いストローク (彗星のしっぽ)
+    if (b._trail && b._trail.length > 1) {
+      const baseAlpha = ctx.globalAlpha;
+      ctx.save();
+      ctx.shadowBlur = 0;
+      ctx.lineWidth = b.r * 0.9;
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = b.color;
+      for (let i = 0; i < b._trail.length - 1; i++) {
+        ctx.globalAlpha = baseAlpha * (1 - i / b._trail.length) * 0.55;
+        ctx.beginPath();
+        ctx.moveTo(b._trail[i].x, b._trail[i].y);
+        ctx.lineTo(b._trail[i + 1].x, b._trail[i + 1].y);
+        ctx.stroke();
+      }
+      ctx.restore();
+      ctx.globalAlpha = baseAlpha;
+    }
     ctx.shadowColor = b.color;
     // 弾の縁
     ctx.fillStyle = b.color;

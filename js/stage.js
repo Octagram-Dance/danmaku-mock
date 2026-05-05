@@ -317,10 +317,110 @@ function drawBgStage4() {
   }
 }
 
+// ─────────────────────────────────────────────────────────
+// ステージ5: 星界 / 宇宙 (4層パララックス)
+// 最終ステージ。深宇宙・星雲・流れる星々のレイヤード。
+// ─────────────────────────────────────────────────────────
+function drawBgStage5() {
+  // Layer 0: 深宇宙グラデ
+  const grad = ctx.createLinearGradient(0, PY, 0, PY + PH);
+  grad.addColorStop(0, '#000010');
+  grad.addColorStop(0.5, '#100020');
+  grad.addColorStop(1, '#000008');
+  ctx.fillStyle = grad;
+  ctx.fillRect(PX, PY, PW, PH);
+
+  // Layer 1: 遠い銀河のシルエット (ほぼ静止、薄い円弧)
+  // 中央上部に大きな銀河、中央下部に小さな銀河を配置
+  ctx.save();
+  ctx.translate(PX + PW * 0.35, PY + PH * 0.32);
+  ctx.rotate(-0.45);
+  const galGrad = ctx.createRadialGradient(0, 0, 20, 0, 0, 220);
+  galGrad.addColorStop(0, 'rgba(180, 160, 220, 0.30)');
+  galGrad.addColorStop(0.4, 'rgba(120, 100, 180, 0.15)');
+  galGrad.addColorStop(1, 'rgba(60, 40, 120, 0)');
+  ctx.fillStyle = galGrad;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 220, 60, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  ctx.translate(PX + PW * 0.78, PY + PH * 0.78);
+  ctx.rotate(0.6);
+  const galGrad2 = ctx.createRadialGradient(0, 0, 10, 0, 0, 130);
+  galGrad2.addColorStop(0, 'rgba(150, 200, 230, 0.22)');
+  galGrad2.addColorStop(0.5, 'rgba(80, 130, 180, 0.10)');
+  galGrad2.addColorStop(1, 'rgba(40, 60, 100, 0)');
+  ctx.fillStyle = galGrad2;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 130, 38, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Layer 2: 星雲 (紫・青・ピンクの薄い雲、ゆっくりスクロール)
+  const nebOff = (frame * 0.4) % (PH + 200);
+  const nebulae = [
+    { ox: 0.15, oy: 0.20, c: 'rgba(180, 100, 220, 0.18)', rx: 110, ry: 60 },
+    { ox: 0.65, oy: 0.45, c: 'rgba(100, 130, 220, 0.15)', rx: 130, ry: 50 },
+    { ox: 0.30, oy: 0.70, c: 'rgba(220, 130, 180, 0.13)', rx: 90,  ry: 50 },
+    { ox: 0.80, oy: 0.10, c: 'rgba(130, 200, 220, 0.13)', rx: 100, ry: 45 }
+  ];
+  nebulae.forEach((n, idx) => {
+    const baseY = PY + PH * n.oy + (frame * 0.4 + idx * 90) % (PH + 200) - 100;
+    const cy = ((baseY - PY) % (PH + 200)) + PY - 50;
+    const cx = PX + PW * n.ox;
+    ctx.fillStyle = n.c;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, n.rx, n.ry, 0, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // Layer 3: 中サイズの星 (frame * 0.6 でゆっくりスクロール)
+  ctx.fillStyle = 'rgba(200, 200, 255, 0.55)';
+  for (let i = 0; i < 60; i++) {
+    const y = PY + ((i * 47 + frame * 0.6) % PH);
+    const x = PX + ((i * 113) % PW);
+    ctx.fillRect(x, y, 1, 1);
+  }
+  // 中: 中サイズの星
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+  for (let i = 0; i < 35; i++) {
+    const y = PY + ((i * 73 + frame * 0.9) % PH);
+    const x = PX + ((i * 137) % PW);
+    ctx.fillRect(x, y, 2, 2);
+  }
+
+  // Layer 4 (手前): 大きな星 + 流れ星 (10秒に1回程度)
+  ctx.fillStyle = 'rgba(255, 255, 240, 0.85)';
+  for (let i = 0; i < 20; i++) {
+    const y = PY + ((i * 91 + frame * 1.4) % PH);
+    const x = PX + ((i * 167) % PW);
+    // 大きな星は十字状
+    ctx.fillRect(x, y, 2, 2);
+    ctx.fillRect(x - 1, y, 4, 1);
+    ctx.fillRect(x, y - 1, 1, 4);
+  }
+  // 流れ星 (600F = 10秒周期で 60F だけ出現)
+  for (let i = 0; i < 2; i++) {
+    const t = (frame * 2 + i * 320) % 1200;
+    if (t < 60) {
+      const startX = PX + ((i * 211) % PW);
+      ctx.strokeStyle = `rgba(255, 240, 220, ${(60 - t) / 60})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(startX + t * 2, PY + t * 4);
+      ctx.lineTo(startX + t * 2 - 35, PY + t * 4 - 70);
+      ctx.stroke();
+    }
+  }
+}
+
 function drawStageBackground(stage) {
   if (stage === 1) drawBgStage1();
   else if (stage === 2) drawBgStage2();
   else if (stage === 3) drawBgStage3();
   else if (stage === 4) drawBgStage4();
-  else drawBgStage3(); // 5 等の未実装ステージはステージ 3 背景にフォールバック
+  else if (stage === 5) drawBgStage5();
+  else drawBgStage3();
 }

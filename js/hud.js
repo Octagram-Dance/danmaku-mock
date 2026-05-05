@@ -423,41 +423,7 @@ function drawStateOverlays() {
   } else if (state === 'clear') {
     drawClearSummary();
   } else if (state === 'allClear') {
-    ctx.fillStyle = 'rgba(0,0,0,0.7)';
-    ctx.fillRect(PX, PY, PW, PH);
-    ctx.textAlign = 'center';
-    // 桜の花びら背景
-    ctx.fillStyle = 'rgba(255, 200, 220, 0.5)';
-    for (let i = 0; i < 30; i++) {
-      const x = PX + (i * 173 + frame * 0.5) % PW;
-      const y = PY + (i * 91 + frame * (1 + i % 3 * 0.3)) % PH;
-      ctx.fillRect(x, y, 3, 3);
-    }
-    ctx.fillStyle = '#ffccdd';
-    ctx.font = 'bold 48px "Hiragino Mincho ProN", serif';
-    ctx.shadowColor = '#ff6699';
-    ctx.shadowBlur = 16;
-    ctx.fillText('ALL CLEAR!', PX + PW/2, PY + PH/2 - 50);
-    ctx.font = 'bold 28px "Hiragino Mincho ProN", serif';
-    ctx.fillText('〜 全ステージ制覇 〜', PX + PW/2, PY + PH/2 - 10);
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = '#fff';
-    ctx.font = '20px sans-serif';
-    ctx.fillText(`FINAL SCORE: ${score.toLocaleString()}`, PX + PW/2, PY + PH/2 + 30);
-    // 追加: 累計グレイズ
-    ctx.fillStyle = '#88ff88';
-    ctx.font = 'bold 16px monospace';
-    ctx.fillText(`Total Graze: ${grazeCount.toLocaleString()}`, PX + PW/2, PY + PH/2 + 56);
-    // NEW RECORD表示
-    const hiAll = getHiScore(selectedDifficulty);
-    if (score >= hiAll && score > 0) {
-      ctx.fillStyle = '#ffcc44';
-      ctx.font = 'bold 22px "Hiragino Mincho ProN", serif';
-      ctx.fillText('★ NEW RECORD! ★', PX + PW/2, PY + PH/2 + 86);
-    }
-    ctx.fillStyle = 'rgba(255,255,255,0.6)';
-    ctx.font = '16px sans-serif';
-    ctx.fillText('Z または Enter でタイトルへ', PX + PW/2, PY + PH/2 + 116);
+    drawAllClear();
   } else if (state === 'paused') {
     ctx.fillStyle = 'rgba(0,0,0,0.7)';
     ctx.fillRect(PX, PY, PW, PH);
@@ -502,7 +468,7 @@ function drawStateOverlays() {
     // タイトルテロップは bgAlpha が高いほど見える
     const textAlpha = bgAlpha;
     if (textAlpha > 0.05) {
-      const stageSubtitles = ['', '', '雪山に至る', '紅葉の地へ'];
+      const stageSubtitles = ['', '', '雪山に至る', '紅葉の地へ', '雷雲の彼方へ', '星界の終焉'];
       const subtitle = stageSubtitles[selectedStage] || '';
       // テロップは中央付近を少し上から下へゆっくり流す (進行に応じて下降)
       const slideY = PY + PH/2 - 30 + (1 - bgAlpha) * 20;
@@ -529,7 +495,189 @@ function drawStateOverlays() {
   } else if (state === 'midBossIntro') {
     // 中ボス出現カットイン本体は midboss.js の drawMidBossIntro が描画
     drawMidBossIntro();
+  } else if (state === 'finalStageIntro') {
+    drawFinalStageIntro();
+  } else if (state === 'phase2Intro') {
+    drawPhase2Intro();
+  } else if (state === 'finalBossDeath') {
+    drawFinalBossDeath();
   }
+}
+
+// ─────────────────────────────────────────────────────────
+// ALL CLEAR 画面: ラスボス (ステージ5) 撃破経路と通常クリア経路の両方を扱う。
+// ステージ5 経由なら宇宙背景 + ラスボス画像 + 拡張集計、それ以外は従来の桜花びら版。
+// ─────────────────────────────────────────────────────────
+function drawAllClear() {
+  ctx.textAlign = 'center';
+  if (selectedStage === 5) {
+    // 1. 宇宙背景 (drawGame の clipping を流用するためここでは深暗のフルブロック)
+    ctx.fillStyle = 'rgba(0, 0, 8, 0.92)';
+    ctx.fillRect(PX, PY, PW, PH);
+    // 2. ラスボス画像を背景にぼんやり (α=0.18)
+    ctx.save();
+    ctx.globalAlpha = 0.18;
+    if (!drawImageCentered('boss_stage5', PX + PW / 2, PY + PH / 2 - 20, 360)) {
+      // フォールバック
+      ctx.fillStyle = '#332244';
+      ctx.beginPath();
+      ctx.arc(PX + PW / 2, PY + PH / 2 - 20, 90, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+    // 3. 流れる星屑
+    ctx.fillStyle = 'rgba(255, 255, 240, 0.6)';
+    for (let i = 0; i < 60; i++) {
+      const x = PX + (i * 113 + frame * 0.6) % PW;
+      const y = PY + (i * 47 + frame * (1 + i % 3 * 0.25)) % PH;
+      ctx.fillRect(x, y, 1, 1);
+    }
+    // 4. メインタイトル
+    ctx.font = 'bold 38px sans-serif';
+    ctx.shadowColor = '#aabbff';
+    ctx.shadowBlur = 22;
+    ctx.fillStyle = '#fff5ff';
+    ctx.fillText('You have conquered', PX + PW / 2, PY + 86);
+    ctx.fillText('the cosmos.', PX + PW / 2, PY + 132);
+    ctx.font = 'bold 32px "Hiragino Mincho ProN", "Yu Mincho", serif';
+    ctx.shadowColor = '#ddccff';
+    ctx.fillStyle = '#fff5ff';
+    ctx.fillText('〜 宇宙を制覇した 〜', PX + PW / 2, PY + 188);
+    ctx.shadowBlur = 0;
+    // 5. スコア・グレイズ
+    let y = PY + PH / 2 + 60;
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 22px sans-serif';
+    ctx.fillText(`FINAL SCORE: ${score.toLocaleString()}`, PX + PW / 2, y);
+    y += 32;
+    ctx.fillStyle = '#88ff88';
+    ctx.font = 'bold 16px monospace';
+    ctx.fillText(`Total Graze: ${grazeCount.toLocaleString()}`, PX + PW / 2, y);
+    y += 24;
+    // 6. 難易度別ベスト
+    ctx.font = 'bold 12px sans-serif';
+    ctx.fillStyle = 'rgba(255, 220, 200, 0.65)';
+    ctx.fillText('— Best by Difficulty —', PX + PW / 2, y);
+    y += 18;
+    const dColors = { Easy: '#88ff88', Normal: '#ffcc44', Hard: '#ff4488' };
+    const scores = loadHiScores();
+    ['Easy', 'Normal', 'Hard'].forEach(d => {
+      const cleared = (scores[d] || 0) > 0;
+      ctx.font = 'bold 12px monospace';
+      ctx.fillStyle = dColors[d];
+      ctx.textAlign = 'right';
+      ctx.fillText(`${d}:`, PX + PW / 2 - 10, y);
+      ctx.fillStyle = cleared ? '#fff' : 'rgba(180,180,180,0.5)';
+      ctx.textAlign = 'left';
+      ctx.fillText(cleared ? (scores[d] || 0).toString().padStart(8, '0') : '--------', PX + PW / 2 + 10, y);
+      y += 16;
+    });
+    ctx.textAlign = 'center';
+    // NEW RECORD
+    const hiAll = getHiScore(selectedDifficulty);
+    if (score >= hiAll && score > 0) {
+      ctx.fillStyle = '#ffcc44';
+      ctx.font = 'bold 18px "Hiragino Mincho ProN", serif';
+      ctx.shadowBlur = 12;
+      ctx.shadowColor = '#ffcc44';
+      ctx.fillText('★ NEW RECORD! ★', PX + PW / 2, y + 6);
+      ctx.shadowBlur = 0;
+      y += 24;
+    }
+    // プロンプト
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.font = '14px sans-serif';
+    ctx.fillText('Z または Enter でタイトルへ', PX + PW / 2, PY + PH - 20);
+    return;
+  }
+
+  // 通常 (ステージ4 以前で IMPLEMENTED_STAGES 上限まで進めたケース) の桜版
+  ctx.fillStyle = 'rgba(0,0,0,0.7)';
+  ctx.fillRect(PX, PY, PW, PH);
+  ctx.fillStyle = 'rgba(255, 200, 220, 0.5)';
+  for (let i = 0; i < 30; i++) {
+    const x = PX + (i * 173 + frame * 0.5) % PW;
+    const y = PY + (i * 91 + frame * (1 + i % 3 * 0.3)) % PH;
+    ctx.fillRect(x, y, 3, 3);
+  }
+  ctx.fillStyle = '#ffccdd';
+  ctx.font = 'bold 48px "Hiragino Mincho ProN", serif';
+  ctx.shadowColor = '#ff6699';
+  ctx.shadowBlur = 16;
+  ctx.fillText('ALL CLEAR!', PX + PW/2, PY + PH/2 - 50);
+  ctx.font = 'bold 28px "Hiragino Mincho ProN", serif';
+  ctx.fillText('〜 全ステージ制覇 〜', PX + PW/2, PY + PH/2 - 10);
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#fff';
+  ctx.font = '20px sans-serif';
+  ctx.fillText(`FINAL SCORE: ${score.toLocaleString()}`, PX + PW/2, PY + PH/2 + 30);
+  ctx.fillStyle = '#88ff88';
+  ctx.font = 'bold 16px monospace';
+  ctx.fillText(`Total Graze: ${grazeCount.toLocaleString()}`, PX + PW/2, PY + PH/2 + 56);
+  const hiAll = getHiScore(selectedDifficulty);
+  if (score >= hiAll && score > 0) {
+    ctx.fillStyle = '#ffcc44';
+    ctx.font = 'bold 22px "Hiragino Mincho ProN", serif';
+    ctx.fillText('★ NEW RECORD! ★', PX + PW/2, PY + PH/2 + 86);
+  }
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.font = '16px sans-serif';
+  ctx.fillText('Z または Enter でタイトルへ', PX + PW/2, PY + PH/2 + 116);
+}
+
+// ─────────────────────────────────────────────────────────
+// ラスボス前の導入演出 (state='finalStageIntro'、360F)
+// 構成:
+//   0-30   : 黒オーバーレイがフェードイン (透過率を控えめに、宇宙背景を活かす)
+//  30-270 : テロップ「終焉の地へ」表示 (中央)
+// 270-360 : テロップとオーバーレイがフェードアウト
+// ─────────────────────────────────────────────────────────
+function drawFinalStageIntro() {
+  if (state !== 'finalStageIntro') return;
+  const TOTAL = 360;
+  const t = TOTAL - finalStageIntroTimer;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(PX, PY, PW, PH);
+  ctx.clip();
+
+  // 軽い黒オーバーレイ (背景は見えたまま、テロップを目立たせる)
+  let bgAlpha;
+  if (t < 30) bgAlpha = (t / 30) * 0.35;
+  else if (t < 270) bgAlpha = 0.35;
+  else bgAlpha = 0.35 * (TOTAL - t) / 90;
+  ctx.fillStyle = `rgba(0, 0, 0, ${bgAlpha})`;
+  ctx.fillRect(PX, PY, PW, PH);
+
+  // テロップ: 0-30 でフェードイン、30-270 でホールド、270-360 でフェードアウト
+  let textAlpha;
+  if (t < 30) textAlpha = t / 30;
+  else if (t < 270) textAlpha = 1;
+  else textAlpha = (TOTAL - t) / 90;
+  if (textAlpha > 0) {
+    ctx.textAlign = 'center';
+    // 上段 英文
+    ctx.font = 'bold 16px sans-serif';
+    ctx.shadowBlur = 14;
+    ctx.shadowColor = '#aabbff';
+    ctx.fillStyle = `rgba(220, 220, 255, ${textAlpha * 0.85})`;
+    ctx.fillText('— The Final Stage —', PX + PW / 2, PY + PH / 2 - 30);
+    // 中央 和文
+    ctx.font = 'bold 56px "Hiragino Mincho ProN", "Yu Mincho", serif';
+    ctx.shadowBlur = 22;
+    ctx.shadowColor = '#ddccff';
+    ctx.fillStyle = `rgba(245, 240, 255, ${textAlpha})`;
+    ctx.fillText('終焉の地へ', PX + PW / 2, PY + PH / 2 + 16);
+    // サブ
+    ctx.font = '13px sans-serif';
+    ctx.shadowBlur = 8;
+    ctx.fillStyle = `rgba(220, 220, 255, ${textAlpha * 0.6})`;
+    ctx.fillText('The Cosmic Sovereign awaits...', PX + PW / 2, PY + PH / 2 + 50);
+    ctx.shadowBlur = 0;
+  }
+
+  ctx.restore();
 }
 
 // ─────────────────────────────────────────────────────────

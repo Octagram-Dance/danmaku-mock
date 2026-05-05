@@ -82,6 +82,7 @@ function handlePointerDown(p) {
   if (state === 'bossIntro')   { bossIntroTimer = 0;    return true; }
   if (state === 'spellCutin')  { spellCutinTimer = 0;   return true; }
   if (state === 'midBossIntro'){ midBossIntroTimer = 0; return true; }
+  if (state === 'phase2Intro') { phase2IntroTimer = 0;  return true; }
   // ポーズ画面のメニュー項目タップ
   if (state === 'paused') {
     const cx = PX + PW/2;
@@ -102,7 +103,7 @@ function handlePointerDown(p) {
   //   - state='play' なら canvas のどこを触っても OK でドラッグ開始
   //   - その他 (title / stageSelect / difficulty / clear / gameOver / allClear / transition)
   //     は handleClick へ
-  if (state === 'play') {
+  if (state === 'play' || state === 'finalStageIntro') {
     startPlayerDrag(p);
     return false;
   }
