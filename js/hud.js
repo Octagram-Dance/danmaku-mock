@@ -371,11 +371,16 @@ function drawHUD() {
   ctx.font = '12px sans-serif';
   ctx.fillText(`Stage ${selectedStage} - ${selectedDifficulty}`, x, y);
   y += 16;
-  // 選択中キャラ (アイコン色 + 名前)
+  // 選択中キャラ (色付き名前 + 性能方向性アイコン)
   const _hudChar = getCharacter(selectedCharacter);
   ctx.fillStyle = _hudChar.color;
   ctx.font = 'bold 12px sans-serif';
-  ctx.fillText(`▸ ${_hudChar.name} / ${_hudChar.enName}`, x, y);
+  const _hudNameText = `▸ ${_hudChar.name} / ${_hudChar.enName}`;
+  ctx.fillText(_hudNameText, x, y);
+  // アイコン: 名前テキストの右に 6px 余白、少し大きめでキャラ色
+  const _hudNameW = ctx.measureText(_hudNameText).width;
+  ctx.font = 'bold 14px sans-serif';
+  ctx.fillText(CHARACTER_ICONS[_hudChar.id] || '', x + _hudNameW + 6, y + 1);
   y += 14;
 
   ctx.fillStyle = '#aaffff';
@@ -456,8 +461,9 @@ function drawHUD() {
 
   ctx.fillStyle = 'rgba(255,255,255,0.6)';
   ctx.font = '12px sans-serif';
-  const rankLabels = ['弾2列', '弾3列', '弾3列+斜め', '弾3列+斜め+ホーミング'];
-  ctx.fillText('装備: ' + rankLabels[r], x, y);
+  // 装備表記はキャラの bulletSpread に応じて変化 (player.js firePlayerBullets と一致)
+  const _eqLabels = EQUIPMENT_LABELS[_hudChar.id] || EQUIPMENT_LABELS.witch;
+  ctx.fillText('装備: ' + _eqLabels[r], x, y);
   y += 24;
 
   ctx.fillStyle = '#aaffff';

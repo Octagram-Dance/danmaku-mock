@@ -72,3 +72,22 @@ function characterIndex(id) {
   const i = CHARACTERS.findIndex(c => c.id === id);
   return i >= 0 ? i : 0;
 }
+
+// HUD 表示用: 装備表記 (キャラ × powerRank 4 段階)。
+//   index 0 = Power 0-2、1 = 3-5、2 = 6-8、3 = MAX (Power 9)
+//   miko は r=2 と r=3 が同じ挙動 (ホーミングなし)
+//   witch / maid は r=3 で実コードがホーミング弾も発射する
+const EQUIPMENT_LABELS = {
+  witch: ['弾2列',         '弾3列',         '弾3列+斜め',   '弾3列+斜め+ホーミング'],
+  miko:  ['中央密集2列',   '中央密集3列',   '中央密集5列',   '中央密集5列'],
+  maid:  ['扇4方向',       '扇5方向',       '扇7方向',       '扇7方向+ホーミング']
+};
+
+// HUD 表示用: キャラ名横の 1 文字アイコン (性能の方向性を一目で示す)。
+// 末尾の ︎ は VS-15 (text variation selector) — 一部の OS で
+// emoji 化されないようテキスト表示を強制し、ctx.fillStyle で色付けが効くようにする。
+const CHARACTER_ICONS = {
+  witch: '★︎', // バランス
+  miko:  '♥︎', // 火力
+  maid:  '⚡︎'  // 機動
+};
