@@ -32,6 +32,13 @@ function firePlayerBullets() {
         playerBullets.push({ x: player.x - 6, y: player.y - 8, vx: 0, vy: -10, r: 3, damage: dmg });
         playerBullets.push({ x: player.x + 6, y: player.y - 8, vx: 0, vy: -10, r: 3, damage: dmg });
       }
+      if (r >= 3) {
+        // Power 9 (MAX) — さらに 2 列追加 (合計 7 列) + 中央の強化弾 (大きめ・高速・1.5x ダメージ)
+        // 火力特化の最終形として、ホーミングなしの代わりに圧倒的な中央火力を持たせる
+        playerBullets.push({ x: player.x - 9, y: player.y - 6, vx: 0, vy: -10, r: 3, damage: dmg });
+        playerBullets.push({ x: player.x + 9, y: player.y - 6, vx: 0, vy: -10, r: 3, damage: dmg });
+        playerBullets.push({ x: player.x, y: player.y - 18, vx: 0, vy: -12, r: 4, damage: dmg * 1.5 });
+      }
     } else if (char.bulletSpread === 'wide') {
       // メイド: 既存の前方 3 列 + 左右斜めの 2 列で扇状 (合計 5 方向 @ Power3)
       playerBullets.push({ x: player.x - 6, y: player.y - 10, vx: 0, vy: -10, r: 3, damage: dmg });
